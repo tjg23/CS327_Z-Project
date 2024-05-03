@@ -9,6 +9,20 @@ typedef enum dim {
 
 typedef int16_t pair_t[num_dims];
 
+/* ###### Pair Operations */
+	#define pairCpy(dest, src) ({   \
+  	dest[dim_x] = src[dim_x];     \
+  	dest[dim_y] = src[dim_y];     \
+	})
+	#define pairSet(dest, x, y) ({  \
+  	dest[dim_x] = x;              \
+  	dest[dim_y] = y;              \
+	})
+	#define pairDiff(diff, key, with) ({      \
+  	diff[dim_x] = key[dim_x] - with[dim_x]; \
+  	diff[dim_y] = key[dim_y] - with[dim_y]; \
+	})
+
 // class pair_t {
 //  public:
 //   int16_t pair[num_dims];

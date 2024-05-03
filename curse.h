@@ -1,5 +1,5 @@
-#ifndef POKE327_H
-# define POKE327_H
+#ifndef CURSE_H
+# define CURSE_H
 
 # include <cstdlib>
 # include <cassert>
@@ -32,7 +32,7 @@
   #define MIN_BOULDERS       10
   #define TREE_PROB          95
   #define BOULDER_PROB       95
-  #define WORLD_SIZE         401
+  #define WORLD_SIZE         31
 
 /* ##### Character Spawn Constants */
   #define MIN_TRAINERS					7
@@ -40,30 +40,29 @@
   #define ENCOUNTER_PROB				10
   #define ADD_TRAINER_POK_PROB 	60
 
-/* ##### Map Rendering Symbols */
+/* ##### Terrain Symbols */
 	#define MOUNTAIN_SYMBOL       '%'
 	#define BOULDER_SYMBOL        '&'
+	#define CLIFF_SYMBOL					'/'
 	#define TREE_SYMBOL           '$'
 	#define FOREST_SYMBOL         '^'
-	#define GATE_SYMBOL           '+'
+	#define GATE_SYMBOL           '#'
 	#define PATH_SYMBOL           '#'
 	#define BAILEY_SYMBOL         '='
-	#define POKEMART_SYMBOL       'M'
-	#define POKEMON_CENTER_SYMBOL 'C'
+	#define HOUSE_SYMBOL					'H'
+	#define SHOP_SYMBOL						'+'
 	#define TALL_GRASS_SYMBOL     ':'
 	#define SHORT_GRASS_SYMBOL    '.'
 	#define WATER_SYMBOL          '~'
 	#define ERROR_SYMBOL          '!'
 
-/* ##### Character Rendering Symbols */
+/* ##### Entity Rendering Symbols */
 	#define PC_SYMBOL       '@'
-	#define HIKER_SYMBOL    'h'
-	#define RIVAL_SYMBOL    'r'
-	#define EXPLORER_SYMBOL 'e'
-	#define SENTRY_SYMBOL   's'
-	#define PACER_SYMBOL    'p'
-	#define SWIMMER_SYMBOL  'm'
-	#define WANDERER_SYMBOL 'w'
+	#define BOKO_SYMBOL     'b'
+  #define MOBLIN_SYMBOL   'P'
+  #define LIZAL_SYMBOL    's'
+  #define KNIGHT_SYMBOL   'K'
+  #define LYNEL_SYMBOL    'X'
 
 /* ##### Coordinate Function Definitions */
 	#define mappair(pair) (m->map[pair[dim_y]][pair[dim_x]])
@@ -76,26 +75,13 @@
 	#define curMapPair(pair) (world.cur_map->map[pair[dim_y]][pair[dim_x]])
 	#define curMapXY(x, y) (world.cur_map->map[y][x])
 
-/* ###### Pair Operations */
-	#define pairCpy(dest, src) ({   \
-  	dest[dim_x] = src[dim_x];     \
-  	dest[dim_y] = src[dim_y];     \
-	})
-	#define pairSet(dest, x, y) ({  \
-  	dest[dim_x] = x;              \
-  	dest[dim_y] = y;              \
-	})
-	#define pairDiff(diff, key, with) ({      \
-  	diff[dim_x] = key[dim_x] - with[dim_x]; \
-  	diff[dim_y] = key[dim_y] - with[dim_y]; \
-	})
 
 typedef enum __attribute__ ((__packed__)) terrain_type {
   ter_boulder,
   ter_tree,
   ter_path,
-  ter_mart,
-  ter_center,
+	ter_house,
+  ter_shop,
   ter_grass,
   ter_clearing,
   ter_mountain,
@@ -103,11 +89,31 @@ typedef enum __attribute__ ((__packed__)) terrain_type {
   ter_water,
   ter_gate,
   ter_bailey,
+	ter_cliff,
   num_terrain_types,
   ter_debug
 } terrain_type_t;
 
+extern char ter_symb[num_terrain_types] = { BOULDER_SYMBOL, TREE_SYMBOL, PATH_SYMBOL, HOUSE_SYMBOL,
+																						SHOP_SYMBOL, TALL_GRASS_SYMBOL, SHORT_GRASS_SYMBOL,
+																						MOUNTAIN_SYMBOL, FOREST_SYMBOL, WATER_SYMBOL, GATE_SYMBOL,
+																						BAILEY_SYMBOL, CLIFF_SYMBOL };
+
 extern int32_t move_cost[num_character_types][num_terrain_types];
+
+typedef enum __attribute__ ((__packed__)) geography_type {
+	geo_wild,
+	geo_plain,
+	geo_wet,
+	geo_woods,
+	geo_cliffs,
+  geo_mountain,
+	geo_town,
+	num_geo_types,
+	geo_fog
+} geo_type_t;
+
+extern char geo_symb[num_geo_types] = { ':', '.', '~', '^', '/', '%', '#' };
 
 class map {
  public:
@@ -115,12 +121,33 @@ class map {
   uint8_t height[MAP_Y][MAP_X];
   character *cmap[MAP_Y][MAP_X];
   heap_t turn;
-  int32_t num_trainers;
-  int8_t n, s, e, w;
+  int32_t num_monsters;
+	geo_type_t type;
 };
+
+// TODO: Implement Subclasses for Terrain Regions
+// class plain : public map {
+//
+// }
+// class marsh : public map {
+//
+// }
+// class woods : public map {
+//
+// }
+// class cliff : public map {
+//
+// }
+// class mount : public map {
+//
+// }
+// class town  : public map {
+//
+// }
 
 class world {
  public:
+	geo_type_t map[WORLD_SIZE][WORLD_SIZE];
   map *world[WORLD_SIZE][WORLD_SIZE];
   pair_t cur_idx;
   map *cur_map;
