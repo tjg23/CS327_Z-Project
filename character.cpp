@@ -1,7 +1,7 @@
 #include <limits.h>
 
 #include "character.h"
-#include "poke327.h"
+#include "curse.h"
 #include "io.h"
 #include "pokemon.h"
 
@@ -14,11 +14,11 @@
  * movement cost, or it throws a wrench into the turn queue.        */
 int32_t move_cost[num_character_types][num_terrain_types] = {
 //  boulder,tree,path,mart,center,grass,clearing,mountain,forest,water,gate,bly
-  { PM, PM, 10, 10, 10, 20, 10, PM, PM, PM, 10, 10 },
-  { PM, PM, 10, NN, NN, 15, 10, 15, 15, PM, PM, NN },
-  { PM, PM, 10, NN, NN, 20, 10, PM, PM, PM, PM, NN },
-  { PM, PM,  7, PM, PM, PM, PM, PM, PM,  7, PM, PM },
-  { PM, PM, 10, NN, NN, 20, 10, PM, PM, PM, PM, PM },
+  { PM, PM, 10, 10, 10, 20, 10, PM, PM, PM, 10, 10, PM },
+  { PM, PM, 10, NN, NN, 15, 10, 15, 15, PM, PM, NN, 15 },
+  { PM, PM, 10, NN, NN, 20, 10, PM, PM, PM, PM, NN, PM },
+  { PM, PM,  7, PM, PM, PM, PM, PM, PM,  7, PM, PM, PM },
+  { PM, PM, 10, NN, NN, 20, 10, PM, PM, PM, PM, PM, PM },
 };
 #undef PM
 #undef NN
@@ -467,7 +467,7 @@ int character::swap()
 //   }
 //   bag[item]--;
 //   if (item == inv_revive) {
-    
+//
 //   }
 // }
 

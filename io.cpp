@@ -8,8 +8,8 @@
 #include "io.h"
 #include "pair.h"
 #include "character.h"
-#include "poke327.h"
-// #include "pokemon.h"
+#include "curse.h"
+#include "pokemon.h"
 
 #define TRAINER_LIST_FIELD_WIDTH 46
 
@@ -244,13 +244,14 @@ void io_display()
     }
   }
 
-  mvprintw(23, 1, "PC position is (%2d,%2d) on map %d%cx%d%c.",
+  mvprintw(23, 1, "PC position is (%2d,%2d) on map %d%cx%d%c [%c]",
            world.pc.pos[dim_x],
            world.pc.pos[dim_y],
            abs(world.cur_idx[dim_x] - (WORLD_SIZE / 2)),
            world.cur_idx[dim_x] - (WORLD_SIZE / 2) >= 0 ? 'E' : 'W',
            abs(world.cur_idx[dim_y] - (WORLD_SIZE / 2)),
-           world.cur_idx[dim_y] - (WORLD_SIZE / 2) <= 0 ? 'N' : 'S');
+           world.cur_idx[dim_y] - (WORLD_SIZE / 2) <= 0 ? 'N' : 'S',
+           geo_symb[world.cur_map->geotype]);
   mvprintw(22, 1, "%d known %s.", world.cur_map->num_trainers,
            world.cur_map->num_trainers > 1 ? "trainers" : "trainer");
   mvprintw(22, 30, "Nearest visible trainer: ");
@@ -271,12 +272,12 @@ void io_display()
     attroff(COLOR_PAIR(COLOR_BLUE));
   }
 
-  // std::string buddies_hud = "Buddies: [" + std::to_string(world.pc.num_buddies) 
-  //               + "/6] | @: " + world.pc.buddy[0]->get_species() 
-	// 							+ " L:" + std::to_string(world.pc.buddy[0]->get_lvl())
-	// 							+ "(" + std::to_string(world.pc.buddy[0]->get_chp()) 
-	// 										+ "/" + std::to_string(world.pc.buddy[0]->get_hp()) + ")";
-  // mvprintw(23, 40, "%40s", buddies_hud.c_str());
+  std::string buddies_hud = "Buddies: [" + std::to_string(world.pc.num_buddies) 
+                + "/6] | @: " + world.pc.buddy[0]->get_species() 
+								+ " L:" + std::to_string(world.pc.buddy[0]->get_lvl())
+								+ "(" + std::to_string(world.pc.buddy[0]->get_chp()) 
+											+ "/" + std::to_string(world.pc.buddy[0]->get_hp()) + ")";
+  mvprintw(23, 40, "%40s", buddies_hud.c_str());
 
   io_print_message_queue(0, 0);
 
@@ -402,12 +403,38 @@ static void io_list_trainers()
   io_display();
 }
 
+void io_map() {
+  WINDOW *world_map;
+  uint8_t close_map = 0;
+  world_map = open_popup(SCALED_WORLD + 2, SCALED_WORLD + 2, 1, MAP_X - (SCALED_WORLD + 2));
+
+  do {
+    for (int y = 0; y < SCALED_WORLD; y++) {
+      for (int x = 0; x < SCALED_WORLD; x++) {
+        mvwaddch(world_map, y+1, x+1, geo_symb[world.wmap[y][x]]);
+      }
+    }
+		wrefresh(world_map);
+    switch(wgetch(world_map)) {
+    case 27:
+		case 'm':
+		case 'q':
+			close_map = 1;
+      return;
+		default:
+			break;
+    }
+  } while (!close_map);
+
+	close_popup(world_map);
+}
+
 void io_pokemart()
 {
   mvprintw(0, 0, "Welcome to the Pokemart.  Could I interest you in some Pokeballs?");
-	// world.pc.bag[inv_revive] = 2;
-	// world.pc.bag[inv_potion] = 2;
-	// world.pc.bag[inv_pokeball] = 2;
+	world.pc.bag[inv_revive] = 2;
+	world.pc.bag[inv_potion] = 2;
+	world.pc.bag[inv_pokeball] = 2;
   refresh();
   getch();
 }
@@ -415,811 +442,816 @@ void io_pokemart()
 void io_pokemon_center()
 {
   mvprintw(0, 0, "Welcome to the Pokemon Center.  How can Nurse Joy assist you?");
-	// for (int i = 0; i < 6 && world.pc.buddy[i]; i++) {
-	// 	world.pc.buddy[i]->heal(world.pc.buddy[i]->get_hp());
-	// }
+	for (int i = 0; i < 6 && world.pc.buddy[i]; i++) {
+		world.pc.buddy[i]->heal(world.pc.buddy[i]->get_hp());
+	}
   refresh();
   getch();
 }
 
-// int io_inventory() {
-// 	WINDOW *inventory;
-// 	inventory = open_popup(MAP_Y - 4, 20, 3, 3);
-// 	uint8_t close_bag = 0;
-//
-// 	int y, i, j;
-//
-// 	do {
-// 		mvwprintw(inventory, 2, 2, "Inventory:");
-// 		mvwprintw(inventory, 3, 3, "1|  Revives x%d", world.pc.bag[inv_revive]);
-// 		mvwprintw(inventory, 4, 3, "2|  Potions x%d", world.pc.bag[inv_potion]);
-// 		mvwprintw(inventory, 5, 3, "3|Pokeballs x%d", world.pc.bag[inv_pokeball]);
-//
-// 		mvwprintw(inventory, 7, 2, "[1|2|3]/[0]");
-//
-// 		switch(wgetch(inventory)) {
-// 		case '1':
-// 			/* Clear Menu */
-// 			for (j = 2; j < 15; j++) {
-// 				mvwprintw(inventory, j, 2, "%16s", "");
-// 			}
-// 			y = 2;
-// 			mvwprintw(inventory, y++, 2, "Choose Pokemon:");
-// 			/* List Unconcscious Pokemon */
-// 			for (i = 0; i < 6 && world.pc.buddy[i]; i++) {
-// 				if (world.pc.buddy[i]->get_chp() <= 0) {
-// 					mvwprintw(inventory, y++, 3, "%d %12s", i, world.pc.buddy[i]->get_species());
-// 					mvwprintw(inventory, y++, 5, "- L:%d | %d/%d", 
-// 																					world.pc.buddy[i]->get_lvl(),
-// 																					world.pc.buddy[i]->get_chp(),
-// 																					world.pc.buddy[i]->get_hp());
-// 				}
-// 			}
-// 			/* Display Valid Input Options*/
-// 			switch(--i) {
-// 				case 0:
-// 				mvwprintw(inventory, y++, 2, "No 0hp Pokemon");
-// 				mvwprintw(inventory, ++y, 2, "[0]");
-// 				break;
-// 				case 1:
-// 				mvwprintw(inventory, ++y, 2, "[1]/[0]");
-// 				break;
-// 				case 2:
-// 				mvwprintw(inventory, ++y, 2, "[1|2]/[0]");
-// 				break;
-// 				case 3:
-// 				mvwprintw(inventory, ++y, 2, "[1|2|3]/[0]");
-// 				break;
-// 				case 4:
-// 				mvwprintw(inventory, ++y, 2, "[1|2|3|4]/[0]");
-// 				break;
-// 				case 5:
-// 				mvwprintw(inventory, ++y, 2, "[1|2|3|4|5]/[0]");
-// 				break;
-// 			}
-//
-// 			switch(wgetch(inventory)) {
-// 			case '1':
-// 				j = 0;
-// 			case '2':
-// 				j = 1;
-// 			case '3':
-// 				j = 2;
-// 			case '4':
-// 				j = 3;
-// 			case '5':
-// 				j = 4;
-// 			case '6':
-// 				j = 5;
-// 				if (world.pc.buddy[i]) {
-// 					world.pc.bag[inv_revive]--;
-// 					world.pc.buddy[j]->heal(world.pc.buddy[j]->get_hp() / 2);
-// 				}
-// 				return j + 5;
-// 				break;
-// 			default:
-// 				for (j = 2; j < 15; j++) {
-// 					mvwprintw(inventory, j, 2, "%16s", "");
-// 				}
-// 				break;
-// 			}
-// 			break;
-// 		case '2':
-// 			/* Clear Menu */
-// 			for (j = 2; j < 15; j++) {
-// 				mvwprintw(inventory, j, 2, "%16s", "");
-// 			}
-// 			y = 2;
-// 			mvwprintw(inventory, y++, 2, "Choose Pokemon:");
-// 			/* List Unconcscious Pokemon */
-// 			for (i = 0; i < 6 && world.pc.buddy[i]; i++) {
-// 				if (world.pc.buddy[i]->get_chp() < world.pc.buddy[i]->get_hp()) {
-// 					mvwprintw(inventory, y++, 3, "%d %12s", i, world.pc.buddy[i]->get_species());
-// 					mvwprintw(inventory, y++, 5, "- L:%d | %d/%d", 
-// 																					world.pc.buddy[i]->get_lvl(),
-// 																					world.pc.buddy[i]->get_chp(),
-// 																					world.pc.buddy[i]->get_hp());
-// 				}
-// 			}
-// 			/* Display Valid Input Options*/
-// 			switch(--i) {
-// 				case 0:
-// 				mvwprintw(inventory, y++, 2, "No Hurt Pokemon");
-// 				mvwprintw(inventory, ++y, 2, "[0]");
-// 				break;
-// 				case 1:
-// 				mvwprintw(inventory, ++y, 2, "[1]/[0]");
-// 				break;
-// 				case 2:
-// 				mvwprintw(inventory, ++y, 2, "[1|2]/[0]");
-// 				break;
-// 				case 3:
-// 				mvwprintw(inventory, ++y, 2, "[1|2|3]/[0]");
-// 				break;
-// 				case 4:
-// 				mvwprintw(inventory, ++y, 2, "[1|2|3|4]/[0]");
-// 				break;
-// 				case 5:
-// 				mvwprintw(inventory, ++y, 2, "[1|2|3|4|5]/[0]");
-// 				break;
-// 			}
-//
-// 			switch(wgetch(inventory)) {
-// 			case '1':
-// 				j = 0;
-// 			case '2':
-// 				j = 1;
-// 			case '3':
-// 				j = 2;
-// 			case '4':
-// 				j = 3;
-// 			case '5':
-// 				j = 4;
-// 			case '6':
-// 				j = 5;
-// 				if (world.pc.buddy[j]) {
-// 					world.pc.bag[inv_revive]--;
-// 					world.pc.buddy[j]->heal(world.pc.buddy[j]->get_hp() / 2);
-// 				}
-// 				return j + 11;
-// 				break;
-// 			default:
-// 				for (j = 2; j < 15; j++) {
-// 					mvwprintw(inventory, j, 2, "%16s", "");
-// 				}
-// 				break;
-// 			}
-// 			break;
-// 		case '3':
-// 			mvwprintw(inventory, 9, 2, "Cannot Use Now");
-// 			break;
-// 		case '0':
-// 			close_bag = 1;
-// 			break;
-// 		default:
-// 			break;
-// 		}
-// 		wrefresh(inventory);
-// 	} while (!close_bag);
-//
-// 	close_popup(inventory);
-//
-// 	return -1;
-// }
+int io_inventory() {
+	WINDOW *inventory;
+	inventory = open_popup(MAP_Y - 4, 20, 3, 3);
+	uint8_t close_bag = 0;
+
+	int y, i, j;
+
+	do {
+		mvwprintw(inventory, 2, 2, "Inventory:");
+		mvwprintw(inventory, 3, 3, "1|  Revives x%d", world.pc.bag[inv_revive]);
+		mvwprintw(inventory, 4, 3, "2|  Potions x%d", world.pc.bag[inv_potion]);
+		mvwprintw(inventory, 5, 3, "3|Pokeballs x%d", world.pc.bag[inv_pokeball]);
+
+		mvwprintw(inventory, 7, 2, "[1|2|3]/[0]");
+
+		switch(wgetch(inventory)) {
+		case '1':
+			/* Clear Menu */
+			for (j = 2; j < 15; j++) {
+				mvwprintw(inventory, j, 2, "%16s", "");
+			}
+			y = 2;
+			mvwprintw(inventory, y++, 2, "Choose Pokemon:");
+			/* List Unconcscious Pokemon */
+			for (i = 0; i < 6 && world.pc.buddy[i]; i++) {
+				if (world.pc.buddy[i]->get_chp() <= 0) {
+					mvwprintw(inventory, y++, 3, "%d %12s", i, world.pc.buddy[i]->get_species());
+					mvwprintw(inventory, y++, 5, "- L:%d | %d/%d", 
+																					world.pc.buddy[i]->get_lvl(),
+																					world.pc.buddy[i]->get_chp(),
+																					world.pc.buddy[i]->get_hp());
+				}
+			}
+			/* Display Valid Input Options*/
+			switch(--i) {
+				case 0:
+				mvwprintw(inventory, y++, 2, "No 0hp Pokemon");
+				mvwprintw(inventory, ++y, 2, "[0]");
+				break;
+				case 1:
+				mvwprintw(inventory, ++y, 2, "[1]/[0]");
+				break;
+				case 2:
+				mvwprintw(inventory, ++y, 2, "[1|2]/[0]");
+				break;
+				case 3:
+				mvwprintw(inventory, ++y, 2, "[1|2|3]/[0]");
+				break;
+				case 4:
+				mvwprintw(inventory, ++y, 2, "[1|2|3|4]/[0]");
+				break;
+				case 5:
+				mvwprintw(inventory, ++y, 2, "[1|2|3|4|5]/[0]");
+				break;
+			}
+
+			switch(wgetch(inventory)) {
+			case '1':
+				j = 0;
+			case '2':
+				j = 1;
+			case '3':
+				j = 2;
+			case '4':
+				j = 3;
+			case '5':
+				j = 4;
+			case '6':
+				j = 5;
+				if (world.pc.buddy[i]) {
+					world.pc.bag[inv_revive]--;
+					world.pc.buddy[j]->heal(world.pc.buddy[j]->get_hp() / 2);
+				}
+				return j + 5;
+				break;
+			default:
+				for (j = 2; j < 15; j++) {
+					mvwprintw(inventory, j, 2, "%16s", "");
+				}
+				break;
+			}
+			break;
+		case '2':
+			/* Clear Menu */
+			for (j = 2; j < 15; j++) {
+				mvwprintw(inventory, j, 2, "%16s", "");
+			}
+			y = 2;
+			mvwprintw(inventory, y++, 2, "Choose Pokemon:");
+			/* List Unconcscious Pokemon */
+			for (i = 0; i < 6 && world.pc.buddy[i]; i++) {
+				if (world.pc.buddy[i]->get_chp() < world.pc.buddy[i]->get_hp()) {
+					mvwprintw(inventory, y++, 3, "%d %12s", i, world.pc.buddy[i]->get_species());
+					mvwprintw(inventory, y++, 5, "- L:%d | %d/%d", 
+																					world.pc.buddy[i]->get_lvl(),
+																					world.pc.buddy[i]->get_chp(),
+																					world.pc.buddy[i]->get_hp());
+				}
+			}
+			/* Display Valid Input Options*/
+			switch(--i) {
+				case 0:
+				mvwprintw(inventory, y++, 2, "No Hurt Pokemon");
+				mvwprintw(inventory, ++y, 2, "[0]");
+				break;
+				case 1:
+				mvwprintw(inventory, ++y, 2, "[1]/[0]");
+				break;
+				case 2:
+				mvwprintw(inventory, ++y, 2, "[1|2]/[0]");
+				break;
+				case 3:
+				mvwprintw(inventory, ++y, 2, "[1|2|3]/[0]");
+				break;
+				case 4:
+				mvwprintw(inventory, ++y, 2, "[1|2|3|4]/[0]");
+				break;
+				case 5:
+				mvwprintw(inventory, ++y, 2, "[1|2|3|4|5]/[0]");
+				break;
+			}
+
+			switch(wgetch(inventory)) {
+			case '1':
+				j = 0;
+			case '2':
+				j = 1;
+			case '3':
+				j = 2;
+			case '4':
+				j = 3;
+			case '5':
+				j = 4;
+			case '6':
+				j = 5;
+				if (world.pc.buddy[j]) {
+					world.pc.bag[inv_revive]--;
+					world.pc.buddy[j]->heal(world.pc.buddy[j]->get_hp() / 2);
+				}
+				return j + 11;
+				break;
+			default:
+				for (j = 2; j < 15; j++) {
+					mvwprintw(inventory, j, 2, "%16s", "");
+				}
+				break;
+			}
+			break;
+		case '3':
+			mvwprintw(inventory, 9, 2, "Cannot Use Now");
+			break;
+		case '0':
+			close_bag = 1;
+			break;
+		default:
+			break;
+		}
+		wrefresh(inventory);
+	} while (!close_bag);
+
+	close_popup(inventory);
+
+	return -1;
+}
 
 // int mode, npc* n = NULL, pokemon* w = NULL
 
-// int32_t battle_menu(int mode, npc* n = NULL, pokemon* w = NULL) {
-//   WINDOW *battle_menu;
-//   uint8_t end_battle = 0;
-//   battle_menu = open_popup(MAP_Y - 2, MAP_X - 4, 2, 2);
-//
-//   pokemon& a = *(world.pc.buddy[0]);
-//   int pc_lives = world.pc.num_buddies;
-//   int pc_priority;
-//   int pc_move = -1;
-//
-// 	pokemon& f = *(n->buddy[0]);
-// 	int n_lives = n->num_buddies;
-// 	if (mode) {
-// 		f = *(w);
-// 		n_lives = 1;
-// 	}
-//
-// 	int victor;
-//
-//   int n_priority;
-// 	int n_move = -1;
-//
-//   int turns = 0;
-//   int ry = 2;
-//   int ly = 2;
-//   int i, j, y;
-//
-//   do {
-// 		/* Clear Right Side */
-//     ry = 2;
-//     for (j = 2; j < 15; j++) {
-//       mvwprintw(battle_menu, j, 56, "%19s", "");
-//     }
-//
-// 		/* ###### Center Battle Stage ###### */
-// 		if (!mode) {
-// 			mvwprintw(battle_menu, 1, 31, "Enemy: %8s", char_type_name[n->ctype]);
-// 		} else {
-// 			mvwprintw(battle_menu, 1, 28, "Enemy: Wild %8s", f.get_species());
-// 		}
-//     mvwprintw(battle_menu, ry++, 62, "Turn #%d", ++turns);
-//
-//     mvwprintw(battle_menu, 4, 30, "%15s (%c)",
-//                                     f.get_species(),
-//                                     f.get_gender_string()[0]);
-//     mvwprintw(battle_menu, 5, 40, "L:%d | %3d/%3d", f.get_lvl(), f.get_chp(), f.get_hp());
-// 		mvwprintw(battle_menu, 6, 40, "< ");
-// 		for (i = 0; i < n_lives; i++) {
-// 			wprintw(battle_menu, "@ ");
-// 		}
-// 		wprintw(battle_menu, ">");
-//
-//     mvwprintw(battle_menu, 10, 18, "%15s (%c)",
-//                                       a.get_species(),
-//                                       a.get_gender_string()[0]);
-//     mvwprintw(battle_menu, 11, 26, "L:%d | %3d/%3d", a.get_lvl(), a.get_chp(), a.get_hp());
-// 		mvwprintw(battle_menu, 12, 26, "< ");
-// 		for (i = 0; i < pc_lives; i++) {
-// 			wprintw(battle_menu, "@ ");
-// 		}
-// 		wprintw(battle_menu, ">");
-//
-// 		if (!mode) {
-// 			mvwprintw(battle_menu, 15, 18, "Options: [Z] Fight | [X] Bag | [V] Switch");
-// 		} else {
-// 			mvwprintw(battle_menu, 15, 13, "Options: [Z] Fight | [X] Bag | [C] Run | [V] Switch");
-// 		}
-//     // mvwprintw(battle_menu, 17, 29, "Press [Esc] To Exit");
-//
-// 		/* ##### PC Actions ##### */
-// 		pc_move = -1;
-// 		while (pc_move < 0) {
-// 			ly = 2;
-// 			if (a.get_chp() <= 0) {
-// 				if (pc_lives > 0) {
-// 					ungetch('V');
-// 				} else {
-// 					end_battle = 1;
-// 					pc_move = 100;
-// 					break;
-// 				}
-// 			}
-// 			switch(wgetch(battle_menu)) {
-// 			case 27:
-// 				end_battle = 1;
-// 				pc_move = 100;
-// 				ungetch('>');
-// 				break;
-// 			case 'Z':
-// 			case 'z':
-// 				pc_priority = INT_MAX;
-// 				mvwprintw(battle_menu, ry++, 56, "Your action: Fight");
-//
-// 				mvwprintw(battle_menu, ly++, 3, "Attacks:");
-//
-// 				for (i = 0; i < 4; i++) {
-// 					if (std::string(a.get_move(i)).length() == 0) {
-// 						break;
-// 					}
-// 					mvwprintw(battle_menu, ly++, 4, "%d|%s", i+1, a.get_move(i));
-// 				}
-// 				if (i == 1) {
-// 					mvwprintw(battle_menu, ly++, 2, "[1]/[0]");
-// 					switch(wgetch(battle_menu)) {
-// 					 case '1':
-// 						pc_priority = a.move_priority(0);
-// 						pc_move = 0;
-// 						break;
-// 					 case '0':
-// 					 	ly--;
-// 						ry--;
-// 						break;
-// 					 default:
-// 					 	ly--;
-// 						ry--;
-// 						break;
-// 					}
-// 				} else if (i == 2) {
-// 					mvwprintw(battle_menu, ly++, 2, "[1|2]/[0]");
-// 					switch(wgetch(battle_menu)) {
-// 					case '1':
-// 						pc_priority = a.move_priority(0);
-// 						pc_move = 0;
-// 						break;
-// 					case '2':
-// 						pc_priority = a.move_priority(1);
-// 						pc_move = 1;
-// 						break;
-// 					case '0':
-// 					 	ly--;
-// 						ry--;
-// 						break;
-// 					}
-// 				} else if (i == 3) {
-// 					mvwprintw(battle_menu, ly++, 2, "[1|2|3]/[0]");
-// 					switch(wgetch(battle_menu)) {
-// 					case '1':
-// 						pc_priority = a.move_priority(0);
-// 						pc_move = 0;
-// 						break;
-// 					case '2':
-// 						pc_priority = a.move_priority(1);
-// 						pc_move = 1;
-// 						break;
-// 					case '3':
-// 						pc_priority = a.move_priority(2);
-// 						pc_move = 2;
-// 						break;
-// 					case '0':
-// 					 	ly--;
-// 						ry--;
-// 						break;
-// 					}
-// 				}
-//
-// 				break;
-//
-// 			case 'X':
-// 			case 'x':
-// 				pc_priority = INT_MAX;
-// 				mvwprintw(battle_menu, ry++, 56, "Your action: Bag  ");
-//
-// 				mvwprintw(battle_menu, 2, 2, "Inventory:");
-// 				mvwprintw(battle_menu, 3, 3, "1|  Revives x%d", world.pc.bag[inv_revive]);
-// 				mvwprintw(battle_menu, 4, 3, "2|  Potions x%d", world.pc.bag[inv_potion]);
-// 				mvwprintw(battle_menu, 5, 3, "3|Pokeballs x%d", world.pc.bag[inv_pokeball]);
-//
-// 				mvwprintw(battle_menu, 7, 2, "[1|2|3]/[0]");
-//
-// 				switch(wgetch(battle_menu)) {
-// 				case '1':
-// 					pc_move = 5;
-// 					mvwprintw(battle_menu, ry++, 58, "Using Revive");
-// 					/* Clear Left Side */
-// 					for (j = 2; j < 15; j++) {
-// 						mvwprintw(battle_menu, j, 2, "%16s", "");
-// 					}
-// 					y = 2;
-// 					mvwprintw(battle_menu, y++, 2, "Choose Pokemon:");
-//           /* List Unconcscious Pokemon */
-// 					for (i = 0; i < 6 && world.pc.buddy[i]; i++) {
-// 						if (world.pc.buddy[i]->get_chp() <= 0) {
-// 							mvwprintw(battle_menu, y++, 3, "%d %12s", i, world.pc.buddy[i]->get_species());
-// 							mvwprintw(battle_menu, y++, 5, "- L:%d | %d/%d", 
-// 																							world.pc.buddy[i]->get_lvl(),
-// 																							world.pc.buddy[i]->get_chp(),
-// 																							world.pc.buddy[i]->get_hp());
-// 						}
-// 					}
-// 					/* Display Valid Input Options*/
-//           switch(--i) {
-//            case 0:
-// 						mvwprintw(battle_menu, y++, 2, "No 0hp Pokemon");
-// 						mvwprintw(battle_menu, ++y, 2, "[0]");
-//             break;
-//            case 1:
-// 						mvwprintw(battle_menu, ++y, 2, "[1]/[0]");
-//             break;
-//            case 2:
-// 						mvwprintw(battle_menu, ++y, 2, "[1|2]/[0]");
-//             break;
-//            case 3:
-// 						mvwprintw(battle_menu, ++y, 2, "[1|2|3]/[0]");
-//             break;
-//            case 4:
-// 						mvwprintw(battle_menu, ++y, 2, "[1|2|3|4]/[0]");
-//             break;
-//            case 5:
-// 						mvwprintw(battle_menu, ++y, 2, "[1|2|3|4|5]/[0]");
-//             break;
-//           }
-//
-// 					switch(wgetch(battle_menu)) {
-// 					case '1':
-// 						j = 0;
-// 						pc_move += j;
-// 						break;
-// 					case '2':
-// 						j = 1;
-// 						pc_move += j;
-// 						break;
-// 					case '3':
-// 						j = 2;
-// 						pc_move += j;
-// 						break;
-// 					case '4':
-// 						j = 3;
-// 						pc_move += j;
-// 						break;
-// 					case '5':
-// 						j = 4;
-// 						pc_move += j;
-// 						break;
-// 					case '6':
-// 						j = 5;
-// 						pc_move += j;
-// 						break;
-// 					default:
-// 						pc_move = -1;
-// 						break;
-// 					}
-// 					break;
-// 				case '2':
-// 					pc_move = 11;
-// 					mvwprintw(battle_menu, ry++, 58, "Using Potion");
-//
-// 					/* Clear Left Side */
-// 					for (j = 2; j < 15; j++) {
-// 						mvwprintw(battle_menu, j, 2, "%16s", "");
-// 					}
-//           /* List Pokemon */
-// 					y = 2;
-// 					mvwprintw(battle_menu, y++, 2, "Choose Pokemon:");
-// 					for (i = 0; i < 6 && world.pc.buddy[i]; i++) {
-// 						if (world.pc.buddy[i]->get_chp() < world.pc.buddy[i]->get_hp()) {
-// 							mvwprintw(battle_menu, y++, 3, "%d %12s", i+1, world.pc.buddy[i]->get_species());
-// 							mvwprintw(battle_menu, y++, 5, "- L:%d | %d/%d", 
-// 																							world.pc.buddy[i]->get_lvl(),
-// 																							world.pc.buddy[i]->get_chp(),
-// 																							world.pc.buddy[i]->get_hp());
-// 						}
-// 					}
-//           /* Show Input Options */
-// 					switch(i) {
-//            case 0:
-// 						mvwprintw(battle_menu, y++, 2, "No Hurt Pokemon");
-// 						mvwprintw(battle_menu, ++y, 2, "[0]");
-//             break;
-//            case 1:
-// 						mvwprintw(battle_menu, ++y, 2, "[1]/[0]");
-//             break;
-//            case 2:
-// 						mvwprintw(battle_menu, ++y, 2, "[1|2]/[0]");
-//             break;
-//            case 3:
-// 						mvwprintw(battle_menu, ++y, 2, "[1|2|3]/[0]");
-//             break;
-//            case 4:
-// 						mvwprintw(battle_menu, ++y, 2, "[1|2|3|4]/[0]");
-//             break;
-//            case 5:
-// 						mvwprintw(battle_menu, ++y, 2, "[1|2|3|4|5]/[0]");
-//             break;
-//            case 6:
-// 						mvwprintw(battle_menu, ++y, 2, "[1|2|3|4|5|6]/[0]");
-//             break;
-//           }
-//
-// 					switch(wgetch(battle_menu)) {
-// 					case '1':
-// 						j = 0;
-// 						pc_move += j;
-// 						break;
-// 					case '2':
-// 						j = 1;
-// 						pc_move += j;
-// 						break;
-// 					case '3':
-// 						j = 2;
-// 						pc_move += j;
-// 						break;
-// 					case '4':
-// 						j = 3;
-// 						pc_move += j;
-// 						break;
-// 					case '5':
-// 						j = 4;
-// 						pc_move += j;
-// 						break;
-// 					case '6':
-// 						j = 5;
-// 						pc_move += j;
-// 						break;
-// 					default:
-// 						pc_move = -1;
-// 						break;
-// 					}
-// 					break;
-// 				case '3':
-// 					if (!mode) {
-// 						pc_move = -1;
-// 						break;
-// 					} else {
-// 						pc_move = 18;
-// 						mvwprintw(battle_menu, ry++, 58, "Using Pokeball");
-// 					}
-// 					break;
-// 				case '0':
-// 					ry--;
-// 					break;
-// 				}
-// 				break;
-// 			case 'C':
-// 			case 'c':
-// 				if (!mode) {
-// 					pc_move = -1;
-// 					break;
-// 				} else {
-// 					pc_priority = INT_MAX;
-// 					pc_move = 20;
-// 					mvwprintw(battle_menu, ry++, 56, "Your action: Run  ");
-// 					mvwprintw(battle_menu, 16, 32, "Flee: ");
-// 				}
-//
-// 				break;
-// 			case 'V':
-// 			case 'v':
-// 				pc_priority = INT_MAX;
-// 				pc_move = 30;
-// 				mvwprintw(battle_menu, ry++, 56, "Your action: Swap ");
-//         /* List Pokemon */
-// 				y = 2;
-// 				mvwprintw(battle_menu, y++, 2, "Swap Pokemon:");
-// 				for (i = 1; i < 6 && world.pc.buddy[i] && world.pc.buddy[i]->get_chp() > 0; i++) {
-// 					mvwprintw(battle_menu, y++, 3, "%d %12s", i, world.pc.buddy[i]->get_species());
-// 					mvwprintw(battle_menu, y++, 5, "- L:%d | %d/%d", 
-// 																					world.pc.buddy[i]->get_lvl(),
-// 																					world.pc.buddy[i]->get_chp(),
-// 																					world.pc.buddy[i]->get_hp());
-// 				}
-//         /* Show Valid Input Options*/
-// 				switch(i) {
-//            case 0:
-// 						mvwprintw(battle_menu, y++, 2, "No Hurt Pokemon");
-// 						mvwprintw(battle_menu, ++y, 2, "[0]");
-//             break;
-//            case 1:
-// 						mvwprintw(battle_menu, ++y, 2, "[1]/[0]");
-//             break;
-//            case 2:
-// 						mvwprintw(battle_menu, ++y, 2, "[1|2]/[0]");
-//             break;
-//            case 3:
-// 						mvwprintw(battle_menu, ++y, 2, "[1|2|3]/[0]");
-//             break;
-//            case 4:
-// 						mvwprintw(battle_menu, ++y, 2, "[1|2|3|4]/[0]");
-//             break;
-//            case 5:
-// 						mvwprintw(battle_menu, ++y, 2, "[1|2|3|4|5]/[0]");
-//             break;
-//            default:
-//             break;
-//           }
-//
-// 				switch(wgetch(battle_menu)) {
-// 				case '1':
-// 					j = 1;
-// 					pc_move += j;
-// 					break;
-// 				case '2':
-// 					j = 2;
-// 					pc_move += j;
-// 					break;
-// 				case '3':
-// 					j = 3;
-// 					pc_move += j;
-// 					break;
-// 				case '4':
-// 					j = 4;
-// 					pc_move += j;
-// 					break;
-// 				case '5':
-// 					j = 5;
-// 					pc_move += j;
-// 					break;
-// 				case '0':
-// 					pc_move = -1;
-// 					ry--;
-// 					break;
-// 				}
-// 			}
-// 			/* Clear Left Side */
-// 			for (j = 2; j < 15; j++) {
-// 				mvwprintw(battle_menu, j, 2, "%16s", "");
-// 			}
-// 		}
-//
-// 		n_move = -1;
-// 		if (f.get_chp() > 0) {
-// 			for (i = 0; i < 4; i++) {
-// 				if (std::string(f.get_move(i)).length() == 0) {
-// 					break;
-// 				}
-// 			}
-// 			n_move = (rand() % i);
-// 			n_priority = f.move_priority(n_move);
-// 		} else if (n_lives > 0) {
-// 			n_priority = INT_MAX;
-// 			n_move = 30;
-// 		} else {
-// 			if (!mode) 	{ n->defeated = 1; }
-// 			else				{ delete w; }
-// 			end_battle = 1;
-// 			break;
-// 		}
-//
-//     mvwprintw(battle_menu, ry++, 56, "Opp. Action: Fight");
-// 		if (n_priority == pc_priority) {
-// 			n_priority = f.get_speed();
-// 			pc_priority = a.get_speed();
-// 			if (n_priority == pc_priority) {
-// 				(rand() % 2) ? n_priority++ : n_priority--;
-// 			}
-// 		}
-//     if (n_priority > pc_priority) {
-//       mvwprintw(battle_menu, ry++, 60, "Opp. Acts First");
-// 			ry++;
-// 			if (n_move < 5) {
-// 				mvwprintw(battle_menu, ry++, 57, "%10s | %2d%%", 
-//                                           f.get_move(n_move), 
-//                                           (f.move_accuracy(n_move) < INT_MAX)
-//                                             ? f.move_accuracy(n_move) : 0);
-// 				mvwprintw(battle_menu, ry++, 60, "Attack: %d dmg", f.attack(n_move, a));
-// 				// while (wgetch(battle_menu) != '>') 
-// 				// 	{ wrefresh(battle_menu); }
-// 				if (a.get_chp() <= 0) {
-// 					pc_lives--;
-// 				}
-// 			} else if (n_move == 30) {
-// 				n->swap();
-// 				f = *(n->buddy[0]);
-// 			}
-// 			if (a.get_chp() > 0) {
-// 				if (pc_move < 5) {
-//           mvwprintw(battle_menu, ry++, 56, "%11s | %2d%%", 
-//                                             a.get_move(pc_move), 
-//                                             (a.move_accuracy(pc_move) < INT_MAX)
-//                                               ? a.move_accuracy(pc_move) : 0);
-// 					mvwprintw(battle_menu, ry++, 60, "Attack: %d dmg", a.attack(pc_move, f));
-// 					// while (wgetch(battle_menu) != '>') 
-// 					// 	{ wrefresh(battle_menu); }
-// 					if (f.get_chp() <= 0) {
-// 						n_lives--;
-// 						if (mode) { delete w; }
-// 					}
-// 				} else if (pc_move < 11) {
-// 					j = pc_move - 5;
-// 					if (world.pc.buddy[j] && world.pc.buddy[j]->get_chp() <= 0) {
-// 						world.pc.bag[inv_revive]--;
-// 						mvwprintw(battle_menu, ry++, 60, "Revive : %d", 
-// 														world.pc.buddy[j]->heal(world.pc.buddy[j]->get_hp() / 2));
-// 						pc_lives++;
-// 					}
-// 				} else if (pc_move < 17) {
-// 					j = pc_move - 11;
-// 					if (world.pc.buddy[j]) {
-// 						//  && (world.pc.buddy[j]->get_chp() < world.pc.buddy[j]->get_hp())
-// 						world.pc.bag[inv_potion]--;
-// 						mvwprintw(battle_menu, ry++, 60, "HP +20 : %d", 
-// 														world.pc.buddy[j]->heal(20));
-// 						// world.pc.buddy[j]->heal(20);
-// 					}
-// 				} else if (pc_move == 18) {
-// 					mvwprintw(battle_menu, 16, 30, "Capture: ");
-// 					if (world.pc.num_buddies < 6) {
-// 						world.pc.buddy[world.pc.num_buddies++] = &f;
-// 						mvwprintw(battle_menu, 16, 39, "Success!");
-// 						world.pc.bag[inv_pokeball]--;
-//
-// 						// while (wgetch(battle_menu) != '>') 
-// 						// 	{ wrefresh(battle_menu); }
-// 						end_battle = 1;
-// 					} else {
-// 						mvwprintw(battle_menu, 16, 39, "Failed :(");
-// 						delete w;
-// 					}
-// 				} else if (pc_move == 20) {
-// 					if (rand() % 100 < FLEE_CHANCE) {
-// 						end_battle = 1;
-// 						mvwprintw(battle_menu, 16, 38, "Success");
-// 						io_queue_message("You fled the battle.");
-// 						if (mode) { delete w; }
-// 					} else {
-// 						mvwprintw(battle_menu, 16, 38, "Fail");
-// 						ry--;
-// 					}
-// 				} else if (pc_move >= 30) {
-// 					j = pc_move - 30;
-// 					if (j >= 1 && world.pc.buddy[j] && world.pc.buddy[j]->get_chp() > 0) {
-// 						pokemon* out = world.pc.buddy[0];
-// 						world.pc.buddy[0] = world.pc.buddy[j];
-// 						world.pc.buddy[j] = out;
-// 						mvwprintw(battle_menu, ry++, 58, "%s, I choose you!", world.pc.buddy[0]->get_species());
-// 					}
-// 					a = *(world.pc.buddy[0]);
-// 				}
-// 			}
-//     } else {
-//       mvwprintw(battle_menu, ry++, 61, "You Act First");
-// 			if (pc_move < 5) {
-//         mvwprintw(battle_menu, ry++, 57, "%10s | %2d%%", 
-//                                           a.get_move(pc_move), 
-//                                           (a.move_accuracy(pc_move) < INT_MAX)
-//                                             ? a.move_accuracy(pc_move) : 0);
-// 				mvwprintw(battle_menu, ry++, 60, "Attack: %d dmg", a.attack(pc_move, f));
-// 				// while (wgetch(battle_menu) != '>') 
-// 				// 	{ wrefresh(battle_menu); }
-// 				if (f.get_chp() <= 0) {
-// 					if (mode) { delete w; }
-// 					n_lives--;
-// 				}
-// 			} else if (pc_move < 11) {
-// 				j = pc_move - 5;
-// 				if (world.pc.buddy[j] && world.pc.buddy[j]->get_chp() <= 0) {
-// 					world.pc.bag[inv_revive]--;
-// 					world.pc.buddy[j]->heal(world.pc.buddy[j]->get_hp() / 2);
-// 					pc_lives++;
-// 				}
-// 			} else if (pc_move < 17) {
-// 				j = pc_move - 11;
-// 				if (world.pc.buddy[j]) {
-// 				//  && (world.pc.buddy[j]->get_chp() < world.pc.buddy[j]->get_hp()
-// 					world.pc.bag[inv_potion]--;
-// 					mvwprintw(battle_menu, ry++, 60, "HP +20 : %d", 
-// 														world.pc.buddy[j]->heal(20));
-// 				}
-// 			} else if (pc_move == 18) {
-// 				mvwprintw(battle_menu, 16, 30, "Capture: ");
-// 				if (world.pc.num_buddies < 6) {
-// 					world.pc.buddy[world.pc.num_buddies++] = &f;
-// 					mvwprintw(battle_menu, 16, 39, "Success!");
-// 					world.pc.bag[inv_pokeball]--;
-//
-// 					// while (wgetch(battle_menu) != '>') 
-// 					// 	{ wrefresh(battle_menu); }
-// 					end_battle = 1;
-// 				} else {
-// 					mvwprintw(battle_menu, 16, 39, "Failed :(");
-// 					delete w;
-// 				}
-// 			} else if (pc_move == 20) {
-// 				if (rand() % 100 < FLEE_CHANCE) {
-// 					end_battle = 1;
-// 					mvwprintw(battle_menu, 16, 38, "Success");
-// 					io_queue_message("You fled the battle.");
-// 					if (mode) { delete w; }
-// 				} else {
-// 					mvwprintw(battle_menu, 16, 38, "Fail");
-// 					ry--;
-// 				}
-// 			} else if (pc_move >= 30) {
-// 				j = pc_move - 30;
-// 				if (j >= 1 && world.pc.buddy[j] && world.pc.buddy[j]->get_chp() > 0) {
-// 					pokemon* out = world.pc.buddy[0];
-// 					world.pc.buddy[0] = world.pc.buddy[j];
-// 					world.pc.buddy[j] = out;
-// 					mvwprintw(battle_menu, ry++, 58, "%s, I choose you!", world.pc.buddy[0]->get_species());
-// 				}
-// 				a = *(world.pc.buddy[0]);
-//
-// 			}
-// 			if (f.get_chp() > 0) {
-// 				if (n_move < 5) {
-// 					mvwprintw(battle_menu, ry++, 57, "%10s | %2d%%", 
-// 																						f.get_move(n_move), 
-// 																						(f.move_accuracy(n_move) < INT_MAX)
-// 																							? f.move_accuracy(n_move) : 0);
-// 					mvwprintw(battle_menu, ry++, 60, "Attack: %d dmg", f.attack(n_move, a));
-// 					// while (wgetch(battle_menu) != '>') 
-// 					// 	{ wrefresh(battle_menu); }
-// 					if (a.get_chp() <= 0) {
-// 						if (mode) { delete w; }
-// 						pc_lives--;
-// 					}
-// 				} else if (n_move == 30) {
-// 					n->swap();
-// 					f = *(n->buddy[0]);
-// 				}
-// 			}
-//     }
-//
-//     if (pc_lives == 0) {
-//       end_battle = 1;
-//     }
-//     if (n_lives == 0) {
-//       if (!mode) { n->defeated = 1; }
-// 			else			 { delete w; }
-//       end_battle = 1;
-//     }
-//     mvwprintw(battle_menu, ++ry, 64, "[ ] Cont");
-//     while (wgetch(battle_menu) != ' ') 
-// 			{ wrefresh(battle_menu); }
-//     // wrefresh(battle_menu);
-//   } while (!end_battle);
-//
-//   close_popup(battle_menu);
-//
-// 	victor = pc_lives;
-//   return victor;
-// }
+int32_t battle_menu(int mode, npc* n = NULL, pokemon* w = NULL) {
+  WINDOW *battle_menu;
+  uint8_t end_battle = 0;
+  battle_menu = open_popup(MAP_Y - 2, MAP_X - 4, 2, 2);
+
+  pokemon& a = *(world.pc.buddy[0]);
+  int pc_lives = world.pc.num_buddies;
+  int pc_priority;
+  int pc_move = -1;
+
+	pokemon& f = mode ? *w : *(n->buddy[0]);
+	int n_lives = mode ? 1 : n->num_buddies;
+
+	int victor;
+
+  int n_priority;
+	int n_move = -1;
+
+  int turns = 0;
+  int ry = 2;
+  int ly = 2;
+  int i, j, y;
+
+  do {
+		/* Clear Right Side */
+    ry = 2;
+    for (j = 2; j < 15; j++) {
+      mvwprintw(battle_menu, j, 56, "%19s", "");
+    }
+
+		/* ###### Center Battle Stage ###### */
+		if (!mode) {
+			mvwprintw(battle_menu, 1, 31, "Enemy: %8s", char_type_name[n->ctype]);
+		} else {
+			mvwprintw(battle_menu, 1, 28, "Enemy: Wild %8s", f.get_species());
+		}
+    mvwprintw(battle_menu, ry++, 62, "Turn #%d", ++turns);
+
+    mvwprintw(battle_menu, 4, 30, "%15s (%c)",
+                                    f.get_species(),
+                                    f.get_gender_string()[0]);
+    mvwprintw(battle_menu, 5, 40, "L:%d | %3d/%3d", f.get_lvl(), f.get_chp(), f.get_hp());
+		mvwprintw(battle_menu, 6, 40, "< ");
+		for (i = 0; i < n_lives; i++) {
+			wprintw(battle_menu, "@ ");
+		}
+		wprintw(battle_menu, ">");
+
+    mvwprintw(battle_menu, 10, 18, "%15s (%c)",
+                                      a.get_species(),
+                                      a.get_gender_string()[0]);
+    mvwprintw(battle_menu, 11, 26, "L:%d | %3d/%3d", a.get_lvl(), a.get_chp(), a.get_hp());
+		mvwprintw(battle_menu, 12, 26, "< ");
+		for (i = 0; i < pc_lives; i++) {
+			wprintw(battle_menu, "@ ");
+		}
+		wprintw(battle_menu, ">");
+
+		if (!mode) {
+			mvwprintw(battle_menu, 15, 18, "Options: [Z] Fight | [X] Bag | [V] Switch");
+		} else {
+			mvwprintw(battle_menu, 15, 13, "Options: [Z] Fight | [X] Bag | [C] Run | [V] Switch");
+		}
+    // mvwprintw(battle_menu, 17, 29, "Press [Esc] To Exit");
+
+		/* ##### PC Actions ##### */
+		pc_move = -1;
+		while (pc_move < 0) {
+			ly = 2;
+			if (a.get_chp() <= 0) {
+				if (pc_lives > 0) {
+					ungetch('V');
+				} else {
+					end_battle = 1;
+					pc_move = 100;
+					break;
+				}
+			}
+			switch(wgetch(battle_menu)) {
+			case 27:
+				end_battle = 1;
+				pc_move = 100;
+				ungetch('>');
+				if (!mode)	{ n->defeated = 1; }
+				else {
+					if (world.pc.num_buddies < 6) {
+						world.pc.buddy[world.pc.num_buddies++] = &f;
+					} else {
+						delete w;
+					}
+				}
+				return 1;
+				break;
+			case 'Z':
+			case 'z':
+				pc_priority = INT_MAX;
+				mvwprintw(battle_menu, ry++, 56, "Your action: Fight");
+
+				mvwprintw(battle_menu, ly++, 3, "Attacks:");
+
+				for (i = 0; i < 4; i++) {
+					if (std::string(a.get_move(i)).length() == 0) {
+						break;
+					}
+					mvwprintw(battle_menu, ly++, 4, "%d|%s", i+1, a.get_move(i));
+				}
+				if (i == 1) {
+					mvwprintw(battle_menu, ly++, 2, "[1]/[0]");
+					switch(wgetch(battle_menu)) {
+					 case '1':
+						pc_priority = a.move_priority(0);
+						pc_move = 0;
+						break;
+					 case '0':
+					 	ly--;
+						ry--;
+						break;
+					 default:
+					 	ly--;
+						ry--;
+						break;
+					}
+				} else if (i == 2) {
+					mvwprintw(battle_menu, ly++, 2, "[1|2]/[0]");
+					switch(wgetch(battle_menu)) {
+					case '1':
+						pc_priority = a.move_priority(0);
+						pc_move = 0;
+						break;
+					case '2':
+						pc_priority = a.move_priority(1);
+						pc_move = 1;
+						break;
+					case '0':
+					 	ly--;
+						ry--;
+						break;
+					}
+				} else if (i == 3) {
+					mvwprintw(battle_menu, ly++, 2, "[1|2|3]/[0]");
+					switch(wgetch(battle_menu)) {
+					case '1':
+						pc_priority = a.move_priority(0);
+						pc_move = 0;
+						break;
+					case '2':
+						pc_priority = a.move_priority(1);
+						pc_move = 1;
+						break;
+					case '3':
+						pc_priority = a.move_priority(2);
+						pc_move = 2;
+						break;
+					case '0':
+					 	ly--;
+						ry--;
+						break;
+					}
+				}
+
+				break;
+
+			case 'X':
+			case 'x':
+				pc_priority = INT_MAX;
+				mvwprintw(battle_menu, ry++, 56, "Your action: Bag  ");
+
+				mvwprintw(battle_menu, 2, 2, "Inventory:");
+				mvwprintw(battle_menu, 3, 3, "1|  Revives x%d", world.pc.bag[inv_revive]);
+				mvwprintw(battle_menu, 4, 3, "2|  Potions x%d", world.pc.bag[inv_potion]);
+				mvwprintw(battle_menu, 5, 3, "3|Pokeballs x%d", world.pc.bag[inv_pokeball]);
+
+				mvwprintw(battle_menu, 7, 2, "[1|2|3]/[0]");
+
+				switch(wgetch(battle_menu)) {
+				case '1':
+					pc_move = 5;
+					mvwprintw(battle_menu, ry++, 58, "Using Revive");
+					/* Clear Left Side */
+					for (j = 2; j < 15; j++) {
+						mvwprintw(battle_menu, j, 2, "%16s", "");
+					}
+					y = 2;
+					mvwprintw(battle_menu, y++, 2, "Choose Pokemon:");
+          /* List Unconcscious Pokemon */
+					for (i = 0; i < 6 && world.pc.buddy[i]; i++) {
+						if (world.pc.buddy[i]->get_chp() <= 0) {
+							mvwprintw(battle_menu, y++, 3, "%d %12s", i, world.pc.buddy[i]->get_species());
+							mvwprintw(battle_menu, y++, 5, "- L:%d | %d/%d", 
+																							world.pc.buddy[i]->get_lvl(),
+																							world.pc.buddy[i]->get_chp(),
+																							world.pc.buddy[i]->get_hp());
+						}
+					}
+					/* Display Valid Input Options*/
+          switch(--i) {
+           case 0:
+						mvwprintw(battle_menu, y++, 2, "No 0hp Pokemon");
+						mvwprintw(battle_menu, ++y, 2, "[0]");
+            break;
+           case 1:
+						mvwprintw(battle_menu, ++y, 2, "[1]/[0]");
+            break;
+           case 2:
+						mvwprintw(battle_menu, ++y, 2, "[1|2]/[0]");
+            break;
+           case 3:
+						mvwprintw(battle_menu, ++y, 2, "[1|2|3]/[0]");
+            break;
+           case 4:
+						mvwprintw(battle_menu, ++y, 2, "[1|2|3|4]/[0]");
+            break;
+           case 5:
+						mvwprintw(battle_menu, ++y, 2, "[1|2|3|4|5]/[0]");
+            break;
+          }
+
+					switch(wgetch(battle_menu)) {
+					case '1':
+						j = 0;
+						pc_move += j;
+						break;
+					case '2':
+						j = 1;
+						pc_move += j;
+						break;
+					case '3':
+						j = 2;
+						pc_move += j;
+						break;
+					case '4':
+						j = 3;
+						pc_move += j;
+						break;
+					case '5':
+						j = 4;
+						pc_move += j;
+						break;
+					case '6':
+						j = 5;
+						pc_move += j;
+						break;
+					default:
+						pc_move = -1;
+						break;
+					}
+					break;
+				case '2':
+					pc_move = 11;
+					mvwprintw(battle_menu, ry++, 58, "Using Potion");
+
+					/* Clear Left Side */
+					for (j = 2; j < 15; j++) {
+						mvwprintw(battle_menu, j, 2, "%16s", "");
+					}
+          /* List Pokemon */
+					y = 2;
+					mvwprintw(battle_menu, y++, 2, "Choose Pokemon:");
+					for (i = 0; i < 6 && world.pc.buddy[i]; i++) {
+						if (world.pc.buddy[i]->get_chp() < world.pc.buddy[i]->get_hp()) {
+							mvwprintw(battle_menu, y++, 3, "%d %12s", i+1, world.pc.buddy[i]->get_species());
+							mvwprintw(battle_menu, y++, 5, "- L:%d | %d/%d", 
+																							world.pc.buddy[i]->get_lvl(),
+																							world.pc.buddy[i]->get_chp(),
+																							world.pc.buddy[i]->get_hp());
+						}
+					}
+          /* Show Input Options */
+					switch(i) {
+           case 0:
+						mvwprintw(battle_menu, y++, 2, "No Hurt Pokemon");
+						mvwprintw(battle_menu, ++y, 2, "[0]");
+            break;
+           case 1:
+						mvwprintw(battle_menu, ++y, 2, "[1]/[0]");
+            break;
+           case 2:
+						mvwprintw(battle_menu, ++y, 2, "[1|2]/[0]");
+            break;
+           case 3:
+						mvwprintw(battle_menu, ++y, 2, "[1|2|3]/[0]");
+            break;
+           case 4:
+						mvwprintw(battle_menu, ++y, 2, "[1|2|3|4]/[0]");
+            break;
+           case 5:
+						mvwprintw(battle_menu, ++y, 2, "[1|2|3|4|5]/[0]");
+            break;
+           case 6:
+						mvwprintw(battle_menu, ++y, 2, "[1|2|3|4|5|6]/[0]");
+            break;
+          }
+
+					switch(wgetch(battle_menu)) {
+					case '1':
+						j = 0;
+						pc_move += j;
+						break;
+					case '2':
+						j = 1;
+						pc_move += j;
+						break;
+					case '3':
+						j = 2;
+						pc_move += j;
+						break;
+					case '4':
+						j = 3;
+						pc_move += j;
+						break;
+					case '5':
+						j = 4;
+						pc_move += j;
+						break;
+					case '6':
+						j = 5;
+						pc_move += j;
+						break;
+					default:
+						pc_move = -1;
+						break;
+					}
+					break;
+				case '3':
+					if (!mode) {
+						pc_move = -1;
+						break;
+					} else {
+						pc_move = 18;
+						mvwprintw(battle_menu, ry++, 58, "Using Pokeball");
+					}
+					break;
+				case '0':
+					ry--;
+					break;
+				}
+				break;
+			case 'C':
+			case 'c':
+				if (!mode) {
+					pc_move = -1;
+					break;
+				} else {
+					pc_priority = INT_MAX;
+					pc_move = 20;
+					mvwprintw(battle_menu, ry++, 56, "Your action: Run  ");
+					mvwprintw(battle_menu, 16, 32, "Flee: ");
+				}
+
+				break;
+			case 'V':
+			case 'v':
+				pc_priority = INT_MAX;
+				pc_move = 30;
+				mvwprintw(battle_menu, ry++, 56, "Your action: Swap ");
+        /* List Pokemon */
+				y = 2;
+				mvwprintw(battle_menu, y++, 2, "Swap Pokemon:");
+				for (i = 1; i < 6 && world.pc.buddy[i] && world.pc.buddy[i]->get_chp() > 0; i++) {
+					mvwprintw(battle_menu, y++, 3, "%d %12s", i, world.pc.buddy[i]->get_species());
+					mvwprintw(battle_menu, y++, 5, "- L:%d | %d/%d", 
+																					world.pc.buddy[i]->get_lvl(),
+																					world.pc.buddy[i]->get_chp(),
+																					world.pc.buddy[i]->get_hp());
+				}
+        /* Show Valid Input Options*/
+				switch(i) {
+           case 0:
+						mvwprintw(battle_menu, y++, 2, "No Hurt Pokemon");
+						mvwprintw(battle_menu, ++y, 2, "[0]");
+            break;
+           case 1:
+						mvwprintw(battle_menu, ++y, 2, "[1]/[0]");
+            break;
+           case 2:
+						mvwprintw(battle_menu, ++y, 2, "[1|2]/[0]");
+            break;
+           case 3:
+						mvwprintw(battle_menu, ++y, 2, "[1|2|3]/[0]");
+            break;
+           case 4:
+						mvwprintw(battle_menu, ++y, 2, "[1|2|3|4]/[0]");
+            break;
+           case 5:
+						mvwprintw(battle_menu, ++y, 2, "[1|2|3|4|5]/[0]");
+            break;
+           default:
+            break;
+          }
+
+				switch(wgetch(battle_menu)) {
+				case '1':
+					j = 1;
+					pc_move += j;
+					break;
+				case '2':
+					j = 2;
+					pc_move += j;
+					break;
+				case '3':
+					j = 3;
+					pc_move += j;
+					break;
+				case '4':
+					j = 4;
+					pc_move += j;
+					break;
+				case '5':
+					j = 5;
+					pc_move += j;
+					break;
+				case '0':
+					pc_move = -1;
+					ry--;
+					break;
+				}
+			}
+			/* Clear Left Side */
+			for (j = 2; j < 15; j++) {
+				mvwprintw(battle_menu, j, 2, "%16s", "");
+			}
+		}
+
+		n_move = -1;
+		if (f.get_chp() > 0) {
+			for (i = 0; i < 4; i++) {
+				if (std::string(f.get_move(i)).length() == 0) {
+					break;
+				}
+			}
+			n_move = (rand() % i);
+			n_priority = f.move_priority(n_move);
+		} else if (n_lives > 0) {
+			n_priority = INT_MAX;
+			n_move = 30;
+		} else {
+			if (!mode) 	{ n->defeated = 1; }
+			else				{ delete w; }
+			end_battle = 1;
+			break;
+		}
+
+    mvwprintw(battle_menu, ry++, 56, "Opp. Action: Fight");
+		if (n_priority == pc_priority) {
+			n_priority = f.get_speed();
+			pc_priority = a.get_speed();
+			if (n_priority == pc_priority) {
+				(rand() % 2) ? n_priority++ : n_priority--;
+			}
+		}
+    if (n_priority > pc_priority) {
+      mvwprintw(battle_menu, ry++, 60, "Opp. Acts First");
+			ry++;
+			if (n_move < 5) {
+				mvwprintw(battle_menu, ry++, 57, "%10s | %2d%%", 
+                                          f.get_move(n_move), 
+                                          (f.move_accuracy(n_move) < INT_MAX)
+                                            ? f.move_accuracy(n_move) : 0);
+				mvwprintw(battle_menu, ry++, 60, "Attack: %d dmg", f.attack(n_move, a));
+				// while (wgetch(battle_menu) != '>') 
+				// 	{ wrefresh(battle_menu); }
+				if (a.get_chp() <= 0) {
+					pc_lives--;
+				}
+			} else if (n_move == 30) {
+				n->swap();
+				f = *(n->buddy[0]);
+			}
+			if (a.get_chp() > 0) {
+				if (pc_move < 5) {
+          mvwprintw(battle_menu, ry++, 56, "%11s | %2d%%", 
+                                            a.get_move(pc_move), 
+                                            (a.move_accuracy(pc_move) < INT_MAX)
+                                              ? a.move_accuracy(pc_move) : 0);
+					mvwprintw(battle_menu, ry++, 60, "Attack: %d dmg", a.attack(pc_move, f));
+					// while (wgetch(battle_menu) != '>') 
+					// 	{ wrefresh(battle_menu); }
+					if (f.get_chp() <= 0) {
+						n_lives--;
+						if (mode) { delete w; }
+					}
+				} else if (pc_move < 11) {
+					j = pc_move - 5;
+					if (world.pc.buddy[j] && world.pc.buddy[j]->get_chp() <= 0) {
+						world.pc.bag[inv_revive]--;
+						mvwprintw(battle_menu, ry++, 60, "Revive : %d", 
+														world.pc.buddy[j]->heal(world.pc.buddy[j]->get_hp() / 2));
+						pc_lives++;
+					}
+				} else if (pc_move < 17) {
+					j = pc_move - 11;
+					if (world.pc.buddy[j]) {
+						//  && (world.pc.buddy[j]->get_chp() < world.pc.buddy[j]->get_hp())
+						world.pc.bag[inv_potion]--;
+						mvwprintw(battle_menu, ry++, 60, "HP +20 : %d", 
+														world.pc.buddy[j]->heal(20));
+						// world.pc.buddy[j]->heal(20);
+					}
+				} else if (pc_move == 18) {
+					mvwprintw(battle_menu, 16, 30, "Capture: ");
+					if (world.pc.num_buddies < 6) {
+						world.pc.buddy[world.pc.num_buddies++] = &f;
+						mvwprintw(battle_menu, 16, 39, "Success!");
+						world.pc.bag[inv_pokeball]--;
+
+						// while (wgetch(battle_menu) != '>') 
+						// 	{ wrefresh(battle_menu); }
+						end_battle = 1;
+					} else {
+						mvwprintw(battle_menu, 16, 39, "Failed :(");
+						delete w;
+					}
+				} else if (pc_move == 20) {
+					if (rand() % 100 < FLEE_CHANCE) {
+						end_battle = 1;
+						mvwprintw(battle_menu, 16, 38, "Success");
+						io_queue_message("You fled the battle.");
+						if (mode) { delete w; }
+					} else {
+						mvwprintw(battle_menu, 16, 38, "Fail");
+						ry--;
+					}
+				} else if (pc_move >= 30) {
+					j = pc_move - 30;
+					if (j >= 1 && world.pc.buddy[j] && world.pc.buddy[j]->get_chp() > 0) {
+						pokemon* out = world.pc.buddy[0];
+						world.pc.buddy[0] = world.pc.buddy[j];
+						world.pc.buddy[j] = out;
+						mvwprintw(battle_menu, ry++, 58, "%s, I choose you!", world.pc.buddy[0]->get_species());
+					}
+					a = *(world.pc.buddy[0]);
+				}
+			}
+    } else {
+      mvwprintw(battle_menu, ry++, 61, "You Act First");
+			if (pc_move < 5) {
+        mvwprintw(battle_menu, ry++, 57, "%10s | %2d%%", 
+                                          a.get_move(pc_move), 
+                                          (a.move_accuracy(pc_move) < INT_MAX)
+                                            ? a.move_accuracy(pc_move) : 0);
+				mvwprintw(battle_menu, ry++, 60, "Attack: %d dmg", a.attack(pc_move, f));
+				// while (wgetch(battle_menu) != '>') 
+				// 	{ wrefresh(battle_menu); }
+				if (f.get_chp() <= 0) {
+					if (mode) { delete w; }
+					n_lives--;
+				}
+			} else if (pc_move < 11) {
+				j = pc_move - 5;
+				if (world.pc.buddy[j] && world.pc.buddy[j]->get_chp() <= 0) {
+					world.pc.bag[inv_revive]--;
+					world.pc.buddy[j]->heal(world.pc.buddy[j]->get_hp() / 2);
+					pc_lives++;
+				}
+			} else if (pc_move < 17) {
+				j = pc_move - 11;
+				if (world.pc.buddy[j]) {
+				//  && (world.pc.buddy[j]->get_chp() < world.pc.buddy[j]->get_hp()
+					world.pc.bag[inv_potion]--;
+					mvwprintw(battle_menu, ry++, 60, "HP +20 : %d", 
+														world.pc.buddy[j]->heal(20));
+				}
+			} else if (pc_move == 18) {
+				mvwprintw(battle_menu, 16, 30, "Capture: ");
+				if (world.pc.num_buddies < 6) {
+					world.pc.buddy[world.pc.num_buddies++] = &f;
+					mvwprintw(battle_menu, 16, 39, "Success!");
+					world.pc.bag[inv_pokeball]--;
+
+					// while (wgetch(battle_menu) != '>') 
+					// 	{ wrefresh(battle_menu); }
+					end_battle = 1;
+				} else {
+					mvwprintw(battle_menu, 16, 39, "Failed :(");
+					delete w;
+				}
+			} else if (pc_move == 20) {
+				if (rand() % 100 < FLEE_CHANCE) {
+					end_battle = 1;
+					mvwprintw(battle_menu, 16, 38, "Success");
+					io_queue_message("You fled the battle.");
+					if (mode) { delete w; }
+				} else {
+					mvwprintw(battle_menu, 16, 38, "Fail");
+					ry--;
+				}
+			} else if (pc_move >= 30) {
+				j = pc_move - 30;
+				if (j >= 1 && world.pc.buddy[j] && world.pc.buddy[j]->get_chp() > 0) {
+					pokemon* out = world.pc.buddy[0];
+					world.pc.buddy[0] = world.pc.buddy[j];
+					world.pc.buddy[j] = out;
+					mvwprintw(battle_menu, ry++, 58, "%s, I choose you!", world.pc.buddy[0]->get_species());
+				}
+				a = *(world.pc.buddy[0]);
+
+			}
+			if (f.get_chp() > 0) {
+				if (n_move < 5) {
+					mvwprintw(battle_menu, ry++, 57, "%10s | %2d%%", 
+																						f.get_move(n_move), 
+																						(f.move_accuracy(n_move) < INT_MAX)
+																							? f.move_accuracy(n_move) : 0);
+					mvwprintw(battle_menu, ry++, 60, "Attack: %d dmg", f.attack(n_move, a));
+					// while (wgetch(battle_menu) != '>') 
+					// 	{ wrefresh(battle_menu); }
+					if (a.get_chp() <= 0) {
+						if (mode) { delete w; }
+						pc_lives--;
+					}
+				} else if (n_move == 30) {
+					n->swap();
+					f = *(n->buddy[0]);
+				}
+			}
+    }
+
+    if (pc_lives == 0) {
+      end_battle = 1;
+    }
+    if (n_lives == 0) {
+      if (!mode) { n->defeated = 1; }
+			else			 { delete w; }
+      end_battle = 1;
+    }
+    mvwprintw(battle_menu, ++ry, 64, "[ ] Cont");
+    while (wgetch(battle_menu) != ' ') 
+			{ wrefresh(battle_menu); }
+    // wrefresh(battle_menu);
+  } while (!end_battle);
+
+  close_popup(battle_menu);
+
+	victor = pc_lives;
+  return victor;
+}
 
 void io_battle(character *aggressor, character *defender)
 {
@@ -1251,18 +1283,18 @@ void io_battle(character *aggressor, character *defender)
   s += ".";
 
   io_queue_message("%s", s.c_str()); */
-	// if (world.pc.buddy[0]->get_chp() <= 0) {
-	// 	io_queue_message("You're out of Pokemon!");
-	// 	io_print_message_queue(0, 0);
-	// 	return;
-	// }
+	if (world.pc.buddy[0]->get_chp() <= 0) {
+		io_queue_message("You're out of Pokemon!");
+		io_print_message_queue(0, 0);
+		return;
+	}
   io_print_message_queue(0, 0);
 
-  // if (battle_menu(0, n)) {
-	// }
+  if (battle_menu(0, n)) {
 		if (n->ctype == char_hiker || n->ctype == char_rival) {
 			n->mtype = move_wander;
 		}
+	}
 
   // n->defeated = 1;
 }
@@ -1438,7 +1470,6 @@ void io_handle_input(pair_t dest)
       world.quit = 1;
       turn_not_consumed = 0;
       break;
-      break;
     case 't':
       io_list_trainers();
       turn_not_consumed = 1;
@@ -1453,11 +1484,16 @@ void io_handle_input(pair_t dest)
       io_teleport_pc(dest);
       turn_not_consumed = 0;
       break;
-   case 'f':
+    case 'f':
       /* Fly to any map in the world.                                */
       io_teleport_world(dest);
       turn_not_consumed = 0;
-      break;    
+      break;
+    case 'm':
+		case 'M':
+			io_map();
+      turn_not_consumed = 1;
+      break;
     case 'q':
       /* Demonstrate use of the message queue.  You can use this for *
        * printf()-style debugging (though gdb is probably a better   *

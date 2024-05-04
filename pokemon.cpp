@@ -3,7 +3,7 @@
 
 #include "pokemon.h"
 #include "db_parse.h"
-#include "poke327.h"
+#include "curse.h"
 
 static bool operator<(const levelup_move &f, const levelup_move &s)
 {

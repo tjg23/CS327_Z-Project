@@ -12,13 +12,20 @@
 #include "curse.h"
 #include "character.h"
 #include "io.h"
-// #include "db_parse.h"
-// #include "pokemon.h"
+#include "db_parse.h"
+#include "pokemon.h"
 
 typedef struct queue_node {
   int x, y;
   struct queue_node *next;
 } queue_node_t;
+
+char ter_symb[num_terrain_types] = { BOULDER_SYMBOL, TREE_SYMBOL, PATH_SYMBOL, HOUSE_SYMBOL,
+                                      SHOP_SYMBOL, TALL_GRASS_SYMBOL, SHORT_GRASS_SYMBOL,
+                                      MOUNTAIN_SYMBOL, FOREST_SYMBOL, WATER_SYMBOL, GATE_SYMBOL,
+                                      BAILEY_SYMBOL, CLIFF_SYMBOL };
+
+char geo_symb[num_geo_types] = { ':', '.', '~', '^', '/', '%', '#' };
 
 /* Even unallocated, a WORLD_SIZE x WORLD_SIZE array of pointers is a very *
  * large thing to put on the stack.  To avoid that, world is a global.     */
@@ -514,11 +521,50 @@ static int map_terrain(map *m, int8_t n, int8_t s, int8_t e, int8_t w)
   terrain_type_t type;
   int added_current = 0;
   
-  num_grass = rand() % 4 + 2;
-  num_clearing = rand() % 4 + 2;
-  num_mountain = rand() % 2 + 1;
-  num_forest = rand() % 2 + 1;
-  num_water = rand() % 2 + 1;
+  switch (m->geotype) {
+   case geo_plain:
+    num_grass = rand() % 5 + 3;
+    num_clearing = rand() % 5 + 3;
+    num_mountain = 0;
+    num_forest = rand() % 2;
+    num_water = 0;
+    break;
+   case geo_wet:
+    num_grass = rand() % 3;
+    num_clearing = rand() % 3;
+    num_mountain = 0;
+    num_forest = 0;
+    num_water = rand() % 4 + 3;
+    break;
+   case geo_woods:
+    num_grass = rand() % 2 + 1;
+    num_clearing = rand() % 2;
+    num_mountain = 0;
+    num_forest = rand() % 4 + 2;
+    num_water = rand() % 2;
+    break;
+   case geo_cliffs:
+    num_grass = rand() % 3 + 1;
+    num_clearing = rand() % 3 + 1;
+    num_mountain = rand() % 4 + 2;
+    num_forest = rand() % 2;
+    num_water = rand() % 2;
+    break;
+   case geo_mountain:
+    num_grass = rand() % 2;
+    num_clearing = rand() % 2 + 1;
+    num_mountain = rand() % 5 + 3;
+    num_forest = 0;
+    num_water = rand() % 2;
+   default:
+    num_grass = rand() % 4 + 2;
+    num_clearing = rand() % 4 + 2;
+    num_mountain = rand() % 2 + 1;
+    num_forest = rand() % 2 + 1;
+    num_water = rand() % 2 + 1;
+    break;
+  }
+
   num_total = num_grass + num_clearing + num_mountain + num_forest + num_water;
 
   memset(&m->map, 0, sizeof (m->map));
@@ -529,15 +575,15 @@ static int map_terrain(map *m, int8_t n, int8_t s, int8_t e, int8_t w)
       x = rand() % MAP_X;
       y = rand() % MAP_Y;
     } while (m->map[y][x]);
-    if (i == 0) {
+    if (i == 0 && num_grass != 0) {
       type = ter_grass;
-    } else if (i == num_grass) {
+    } else if (i == num_grass && num_clearing != 0) {
       type = ter_clearing;
-    } else if (i == num_grass + num_clearing) {
+    } else if (i == num_grass + num_clearing && num_mountain != 0) {
       type = ter_mountain;
-    } else if (i == num_grass + num_clearing + num_mountain) {
+    } else if (i == num_grass + num_clearing + num_mountain && num_forest != 0) {
       type = ter_forest;
-    } else if (i == num_grass + num_clearing + num_mountain + num_forest) {
+    } else if (i == num_grass + num_clearing + num_mountain + num_forest && num_water != 0) {
       type = ter_water;
     }
     m->map[y][x] = type;
@@ -733,174 +779,174 @@ void rand_pos(pair_t pos)
   pos[dim_y] = (rand() % (MAP_Y - 2)) + 1;
 }
 
-// static void make_buddies(npc *c)
-// {
-//   int i;
-//
-//   i = 0;
-//   do {
-//     c->buddy[i] = new class pokemon();
-//     i++;
-//   } while ((i < 6) && ((rand() % 100) < ADD_TRAINER_POK_PROB));
-//   c->num_buddies = i;
-//   for (; i < 6; i++) {
-//     c->buddy[i] = NULL;
-//   }
-// }
+static void make_buddies(npc *c)
+{
+  int i;
 
-// void new_hiker()
-// {
-//   pair_t pos;
-//   npc *c;
-//
-//   do {
-//     rand_pos(pos);
-//   } while (world.hiker_dist[pos[dim_y]][pos[dim_x]] == DIJKSTRA_PATH_MAX ||
-//            world.cur_map->cmap[pos[dim_y]][pos[dim_x]]                   ||
-//            pos[dim_x] < 3 || pos[dim_x] > MAP_X - 4                      ||
-//            pos[dim_y] < 3 || pos[dim_y] > MAP_Y - 4);
-//
-//   world.cur_map->cmap[pos[dim_y]][pos[dim_x]] = c = new npc;
-//   c->pos[dim_y] = pos[dim_y];
-//   c->pos[dim_x] = pos[dim_x];
-//   c->ctype = char_hiker;
-//   c->mtype = move_hiker;
-//   c->dir[dim_x] = 0;
-//   c->dir[dim_y] = 0;
-//   c->defeated = 0;
-//   c->symbol = HIKER_SYMBOL;
-//   c->next_turn = 0;
-//   c->seq_num = world.char_seq_num++;
-//   heap_insert(&world.cur_map->turn, c);
-//   make_buddies(c);
-// }
+  i = 0;
+  do {
+    c->buddy[i] = new class pokemon();
+    i++;
+  } while ((i < 6) && ((rand() % 100) < ADD_TRAINER_POK_PROB));
+  c->num_buddies = i;
+  for (; i < 6; i++) {
+    c->buddy[i] = NULL;
+  }
+}
 
-// void new_rival()
-// {
-//   pair_t pos;
-//   npc *c;
-//
-//   do {
-//     rand_pos(pos);
-//   } while (world.rival_dist[pos[dim_y]][pos[dim_x]] == DIJKSTRA_PATH_MAX ||
-//            world.rival_dist[pos[dim_y]][pos[dim_x]] < 0                  ||
-//            world.cur_map->cmap[pos[dim_y]][pos[dim_x]]                   ||
-//            pos[dim_x] < 3 || pos[dim_x] > MAP_X - 4                      ||
-//            pos[dim_y] < 3 || pos[dim_y] > MAP_Y - 4);
-//
-//   world.cur_map->cmap[pos[dim_y]][pos[dim_x]] = c = new npc;
-//   c->pos[dim_y] = pos[dim_y];
-//   c->pos[dim_x] = pos[dim_x];
-//   c->ctype = char_rival;
-//   c->mtype = move_rival;
-//   c->dir[dim_x] = 0;
-//   c->dir[dim_y] = 0;
-//   c->defeated = 0;
-//   c->symbol = RIVAL_SYMBOL;
-//   c->next_turn = 0;
-//   c->seq_num = world.char_seq_num++;
-//   heap_insert(&world.cur_map->turn, c);
-//   make_buddies(c);
-// }
+void new_hiker()
+{
+  pair_t pos;
+  npc *c;
 
-// void new_swimmer()
-// {
-//   pair_t pos;
-//   npc *c;
-//
-//   do {
-//     rand_pos(pos);
-//   } while (world.cur_map->map[pos[dim_y]][pos[dim_x]] != ter_water ||
-//            world.cur_map->cmap[pos[dim_y]][pos[dim_x]]);
-//
-//   world.cur_map->cmap[pos[dim_y]][pos[dim_x]] = c = new npc;
-//   c->pos[dim_y] = pos[dim_y];
-//   c->pos[dim_x] = pos[dim_x];
-//   c->ctype = char_swimmer;
-//   c->mtype = move_swim;
-//   rand_dir(c->dir);
-//   c->defeated = 0;
-//   c->symbol = SWIMMER_SYMBOL;
-//   c->next_turn = 0;
-//   c->seq_num = world.char_seq_num++;
-//   heap_insert(&world.cur_map->turn, c);
-//   make_buddies(c);
-// }
+  do {
+    rand_pos(pos);
+  } while (world.hiker_dist[pos[dim_y]][pos[dim_x]] == DIJKSTRA_PATH_MAX ||
+           world.cur_map->cmap[pos[dim_y]][pos[dim_x]]                   ||
+           pos[dim_x] < 3 || pos[dim_x] > MAP_X - 4                      ||
+           pos[dim_y] < 3 || pos[dim_y] > MAP_Y - 4);
 
-// void new_char_other()
-// {
-//   pair_t pos;
-//   npc *c;
-//
-//   do {
-//     rand_pos(pos);
-//   } while (world.rival_dist[pos[dim_y]][pos[dim_x]] == DIJKSTRA_PATH_MAX ||
-//            world.rival_dist[pos[dim_y]][pos[dim_x]] < 0                  ||
-//            world.cur_map->cmap[pos[dim_y]][pos[dim_x]]                   ||
-//            pos[dim_x] < 3 || pos[dim_x] > MAP_X - 4                      ||
-//            pos[dim_y] < 3 || pos[dim_y] > MAP_Y - 4);
-//
-//   world.cur_map->cmap[pos[dim_y]][pos[dim_x]] = c = new npc;
-//   c->pos[dim_y] = pos[dim_y];
-//   c->pos[dim_x] = pos[dim_x];
-//   c->ctype = char_other;
-//   switch (rand() % 4) {
-//   case 0:
-//     c->mtype = move_pace;
-//     c->symbol = PACER_SYMBOL;
-//     break;
-//   case 1:
-//     c->mtype = move_wander;
-//     c->symbol = WANDERER_SYMBOL;
-//     break;
-//   case 2:
-//     c->mtype = move_sentry;
-//     c->symbol = SENTRY_SYMBOL;
-//     break;
-//   case 3:
-//     c->mtype = move_explore;
-//     c->symbol = EXPLORER_SYMBOL;
-//     break;
-//   }
-//   rand_dir(c->dir);
-//   c->defeated = 0;
-//   c->next_turn = 0;
-//   c->seq_num = world.char_seq_num++;
-//   heap_insert(&world.cur_map->turn, c);
-//   make_buddies(c);
-// }
+  world.cur_map->cmap[pos[dim_y]][pos[dim_x]] = c = new npc;
+  c->pos[dim_y] = pos[dim_y];
+  c->pos[dim_x] = pos[dim_x];
+  c->ctype = char_hiker;
+  c->mtype = move_hiker;
+  c->dir[dim_x] = 0;
+  c->dir[dim_y] = 0;
+  c->defeated = 0;
+  c->symbol = HIKER_SYMBOL;
+  c->next_turn = 0;
+  c->seq_num = world.char_seq_num++;
+  heap_insert(&world.cur_map->turn, c);
+  make_buddies(c);
+}
 
-// void place_characters()
-// {
-//   world.cur_map->num_trainers = 3;
-//
-//   //Always place a hiker and a rival, then place a random number of others
-//   new_hiker();
-//   new_rival();
-//   new_swimmer();
-//   do {
-//     //higher probability of non- hikers and rivals
-//     switch(rand() % 10) {
-//     case 0:
-//       new_hiker();
-//       break;
-//     case 1:
-//       new_rival();
-//       break;
-//     case 2:
-//       new_swimmer();
-//       break;
-//     default:
-//       new_char_other();
-//       break;
-//     }
-//     /* Game attempts to continue to place trainers until the probability *
-//      * roll fails, but if the map is full (or almost full), it's         *
-//      * impossible (or very difficult) to continue to add, so we abort if *
-//      * we've tried MAX_TRAINER_TRIES times.                              */
-//   } while (++world.cur_map->num_trainers < MIN_TRAINERS ||
-//            ((rand() % 100) < ADD_TRAINER_PROB));
-// }
+void new_rival()
+{
+  pair_t pos;
+  npc *c;
+
+  do {
+    rand_pos(pos);
+  } while (world.rival_dist[pos[dim_y]][pos[dim_x]] == DIJKSTRA_PATH_MAX ||
+           world.rival_dist[pos[dim_y]][pos[dim_x]] < 0                  ||
+           world.cur_map->cmap[pos[dim_y]][pos[dim_x]]                   ||
+           pos[dim_x] < 3 || pos[dim_x] > MAP_X - 4                      ||
+           pos[dim_y] < 3 || pos[dim_y] > MAP_Y - 4);
+
+  world.cur_map->cmap[pos[dim_y]][pos[dim_x]] = c = new npc;
+  c->pos[dim_y] = pos[dim_y];
+  c->pos[dim_x] = pos[dim_x];
+  c->ctype = char_rival;
+  c->mtype = move_rival;
+  c->dir[dim_x] = 0;
+  c->dir[dim_y] = 0;
+  c->defeated = 0;
+  c->symbol = RIVAL_SYMBOL;
+  c->next_turn = 0;
+  c->seq_num = world.char_seq_num++;
+  heap_insert(&world.cur_map->turn, c);
+  make_buddies(c);
+}
+
+void new_swimmer()
+{
+  pair_t pos;
+  npc *c;
+
+  do {
+    rand_pos(pos);
+  } while (world.cur_map->map[pos[dim_y]][pos[dim_x]] != ter_water ||
+           world.cur_map->cmap[pos[dim_y]][pos[dim_x]]);
+
+  world.cur_map->cmap[pos[dim_y]][pos[dim_x]] = c = new npc;
+  c->pos[dim_y] = pos[dim_y];
+  c->pos[dim_x] = pos[dim_x];
+  c->ctype = char_swimmer;
+  c->mtype = move_swim;
+  rand_dir(c->dir);
+  c->defeated = 0;
+  c->symbol = SWIMMER_SYMBOL;
+  c->next_turn = 0;
+  c->seq_num = world.char_seq_num++;
+  heap_insert(&world.cur_map->turn, c);
+  make_buddies(c);
+}
+
+void new_char_other()
+{
+  pair_t pos;
+  npc *c;
+
+  do {
+    rand_pos(pos);
+  } while (world.rival_dist[pos[dim_y]][pos[dim_x]] == DIJKSTRA_PATH_MAX ||
+           world.rival_dist[pos[dim_y]][pos[dim_x]] < 0                  ||
+           world.cur_map->cmap[pos[dim_y]][pos[dim_x]]                   ||
+           pos[dim_x] < 3 || pos[dim_x] > MAP_X - 4                      ||
+           pos[dim_y] < 3 || pos[dim_y] > MAP_Y - 4);
+
+  world.cur_map->cmap[pos[dim_y]][pos[dim_x]] = c = new npc;
+  c->pos[dim_y] = pos[dim_y];
+  c->pos[dim_x] = pos[dim_x];
+  c->ctype = char_other;
+  switch (rand() % 4) {
+  case 0:
+    c->mtype = move_pace;
+    c->symbol = PACER_SYMBOL;
+    break;
+  case 1:
+    c->mtype = move_wander;
+    c->symbol = WANDERER_SYMBOL;
+    break;
+  case 2:
+    c->mtype = move_sentry;
+    c->symbol = SENTRY_SYMBOL;
+    break;
+  case 3:
+    c->mtype = move_explore;
+    c->symbol = EXPLORER_SYMBOL;
+    break;
+  }
+  rand_dir(c->dir);
+  c->defeated = 0;
+  c->next_turn = 0;
+  c->seq_num = world.char_seq_num++;
+  heap_insert(&world.cur_map->turn, c);
+  make_buddies(c);
+}
+
+void place_characters()
+{
+  world.cur_map->num_trainers = 3;
+
+  //Always place a hiker and a rival, then place a random number of others
+  new_hiker();
+  new_rival();
+  new_swimmer();
+  do {
+    //higher probability of non- hikers and rivals
+    switch(rand() % 10) {
+    case 0:
+      new_hiker();
+      break;
+    case 1:
+      new_rival();
+      break;
+    case 2:
+      new_swimmer();
+      break;
+    default:
+      new_char_other();
+      break;
+    }
+    /* Game attempts to continue to place trainers until the probability *
+     * roll fails, but if the map is full (or almost full), it's         *
+     * impossible (or very difficult) to continue to add, so we abort if *
+     * we've tried MAX_TRAINER_TRIES times.                              */
+  } while (++world.cur_map->num_trainers < MIN_TRAINERS ||
+           ((rand() % 100) < ADD_TRAINER_PROB));
+}
 
 void init_pc()
 {
@@ -922,11 +968,11 @@ void init_pc()
 
   heap_insert(&world.cur_map->turn, &world.pc);
 
-  // world.pc.bag[inv_revive] = 2;
-  // world.pc.bag[inv_potion] = 2;
-  // world.pc.bag[inv_pokeball] = 2;
+  world.pc.bag[inv_revive] = 2;
+  world.pc.bag[inv_potion] = 2;
+  world.pc.bag[inv_pokeball] = 2;
 
-  // io_choose_starter();
+  io_choose_starter();
 }
 
 void place_pc()
@@ -970,6 +1016,8 @@ int new_map(int teleport)
 
   world.cur_map = new map;
   world.world[world.cur_idx[dim_y]][world.cur_idx[dim_x]] = world.cur_map;
+
+  world.cur_map->geotype = world.wmap[world.cur_idx[dim_y] / 20][world.cur_idx[dim_x] / 20];
 
   smooth_height(world.cur_map);
   
@@ -1049,7 +1097,130 @@ int new_map(int teleport)
     pathfind(world.cur_map);
   }
   
-  // place_characters();
+  place_characters();
+
+  return 0;
+}
+
+int world_gen()
+{
+  int32_t i, j, x, y;
+  queue_node_t *head, *tail, *tmp;
+  int num_by_type[num_geo_types] = { 1, 1, 1, 1, 1, 1, 1 };
+  geo_type_t type;
+  int added_current = 0;
+
+  for (y = 0; y < SCALED_WORLD; y++) {
+    for (x = 0; x < SCALED_WORLD; x++) {
+      world.wmap[y][x] = (geo_type_t)(7);
+    }
+  }
+
+  /* Seeding */
+  for (i = 0; i < num_geo_types; i++) {
+    do {
+      x = rand() % SCALED_WORLD;
+      y = rand() % SCALED_WORLD;
+    } while (world.wmap[y][x] < 7);
+    type = (geo_type_t)(i);
+    for (j = 0; j < num_by_type[i]; j++) {
+      world.wmap[y][x] = type;
+      if (i == 0) {
+        head = tail = (queue_node_t *) malloc(sizeof (*tail));
+      } else {
+        tail->next = (queue_node_t *) malloc(sizeof (*tail));
+        tail = tail->next;
+      }
+      tail->next = NULL;
+      tail->x = x;
+      tail->y = y;
+    }
+  }
+
+  /* Diffuse */
+  while (head) {
+    x = head->x;
+    y = head->y;
+    type = world.wmap[y][x];
+
+    if (x - 1 >= 0 && world.wmap[y][x-1] >= 7) {
+      if ((rand() % 100) < 80) {
+        world.wmap[y][x-1] = type;
+        tail->next = (queue_node_t *) malloc(sizeof (*tail));
+        tail = tail->next;
+        tail->next = NULL;
+        tail->x = x - 1;
+        tail->y = y;
+      } else if (!added_current) {
+        added_current = 1;
+        world.wmap[y][x] = type;
+        tail->next = (queue_node_t *) malloc(sizeof (*tail));
+        tail = tail->next;
+        tail->next = NULL;
+        tail->x = x;
+        tail->y = y;
+      }
+    }
+    if (y - 1 >= 0 && world.wmap[y - 1][x] >= 7) {
+      if ((rand() % 100) < 20) {
+        world.wmap[y - 1][x] = type;
+        tail->next = (queue_node_t *) malloc(sizeof (*tail));
+        tail = tail->next;
+        tail->next = NULL;
+        tail->x = x;
+        tail->y = y - 1;
+      } else if (!added_current) {
+        added_current = 1;
+        world.wmap[y][x] = type;
+        tail->next = (queue_node_t *) malloc(sizeof (*tail));
+        tail = tail->next;
+        tail->next = NULL;
+        tail->x = x;
+        tail->y = y;
+      }
+    }
+    if (y + 1 < SCALED_WORLD && world.wmap[y + 1][x] >= 7) {
+      if ((rand() % 100) < 20) {
+        world.wmap[y + 1][x] = type;
+        tail->next = (queue_node_t *) malloc(sizeof (*tail));
+        tail = tail->next;
+        tail->next = NULL;
+        tail->x = x;
+        tail->y = y + 1;
+      } else if (!added_current) {
+        added_current = 1;
+        world.wmap[y][x] = type;
+        tail->next = (queue_node_t *) malloc(sizeof (*tail));
+        tail = tail->next;
+        tail->next = NULL;
+        tail->x = x;
+        tail->y = y;
+      }
+    }
+    if (x + 1 < SCALED_WORLD && world.wmap[y][x + 1] >= 7) {
+      if ((rand() % 100) < 80) {
+        world.wmap[y][x + 1] = type;
+        tail->next = (queue_node_t *) malloc(sizeof (*tail));
+        tail = tail->next;
+        tail->next = NULL;
+        tail->x = x + 1;
+        tail->y = y;
+      } else if (!added_current) {
+        added_current = 1;
+        world.wmap[y][x] = type;
+        tail->next = (queue_node_t *) malloc(sizeof (*tail));
+        tail = tail->next;
+        tail->next = NULL;
+        tail->x = x;
+        tail->y = y;
+      }
+    }
+
+    added_current = 0;
+    tmp = head;
+    head = head->next;
+    free(tmp);
+  }
 
   return 0;
 }
@@ -1060,6 +1231,7 @@ void init_world()
   world.quit = 0;
   world.cur_idx[dim_x] = world.cur_idx[dim_y] = WORLD_SIZE / 2;
   world.char_seq_num = 0;
+  world_gen();
   new_map(0);
 }
 
