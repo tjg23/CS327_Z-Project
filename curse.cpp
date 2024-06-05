@@ -821,13 +821,20 @@ void new_hiker()
   make_buddies(c);
 }
 
-void new_rival()
+int new_rival()
 {
   pair_t pos;
   npc *c;
 
+  int i = 0;
   do {
     rand_pos(pos);
+
+    if(i > TREE_PROB*BOULDER_PROB) //This number could be anything. I used two random definitions to avoid using a magic number.
+    {
+      return 0; // Failed to place a NPC within 9025 attempts.
+    }
+    i++;
   } while (world.rival_dist[pos[dim_y]][pos[dim_x]] == DIJKSTRA_PATH_MAX ||
            world.rival_dist[pos[dim_y]][pos[dim_x]] < 0                  ||
            world.cur_map->cmap[pos[dim_y]][pos[dim_x]]                   ||
@@ -847,15 +854,23 @@ void new_rival()
   c->seq_num = world.char_seq_num++;
   heap_insert(&world.cur_map->turn, c);
   make_buddies(c);
+  return 1;
 }
 
-void new_swimmer()
+int new_swimmer()
 {
   pair_t pos;
   npc *c;
 
+  int i = 0;
   do {
     rand_pos(pos);
+
+    if(i > TREE_PROB*BOULDER_PROB) //These numbers happen to multiply to a reasonable value and look funny.
+    {
+      return 0; // Failed to place a swimmer within 9025 attempts.
+    }
+    i++;
   } while (world.cur_map->map[pos[dim_y]][pos[dim_x]] != ter_water ||
            world.cur_map->cmap[pos[dim_y]][pos[dim_x]]);
 
@@ -871,15 +886,23 @@ void new_swimmer()
   c->seq_num = world.char_seq_num++;
   heap_insert(&world.cur_map->turn, c);
   make_buddies(c);
+  return 1;
 }
 
-void new_char_other()
+int new_char_other()
 {
   pair_t pos;
   npc *c;
 
+  int i = 0;
   do {
     rand_pos(pos);
+
+    if(i > TREE_PROB*BOULDER_PROB) //These numbers happen to multiply to a reasonable value and look funny.
+    {
+      return 0; // Failed to place a swimmer within 9025 attempts.
+    }
+    i++;
   } while (world.rival_dist[pos[dim_y]][pos[dim_x]] == DIJKSTRA_PATH_MAX ||
            world.rival_dist[pos[dim_y]][pos[dim_x]] < 0                  ||
            world.cur_map->cmap[pos[dim_y]][pos[dim_x]]                   ||
@@ -914,6 +937,7 @@ void new_char_other()
   c->seq_num = world.char_seq_num++;
   heap_insert(&world.cur_map->turn, c);
   make_buddies(c);
+  return 1;
 }
 
 void place_characters()
@@ -921,9 +945,17 @@ void place_characters()
   world.cur_map->num_trainers = 3;
 
   //Always place a hiker and a rival, then place a random number of others
-  new_hiker();
-  new_rival();
-  new_swimmer();
+  // new_hiker();
+  // new_rival();
+  // new_swimmer();
+  new_hiker(); //Hikers can always be placed
+
+  //Non-hiker placement can fail in the rare instance the pc flies into an small unconnected region near the edge of the map.
+  if(!new_rival()) {--world.cur_map->num_trainers;} 
+
+  //Swimmer placement can fail if the generated lake is too small to fit every swimmer. 
+  if(!new_swimmer()) {--world.cur_map->num_trainers;} //The first swimmer is guaranteed a lake.
+
   do {
     //higher probability of non- hikers and rivals
     switch(rand() % 10) {
@@ -931,13 +963,16 @@ void place_characters()
       new_hiker();
       break;
     case 1:
-      new_rival();
+      // new_rival();
+      if(!new_rival()) {--world.cur_map->num_trainers;}
       break;
     case 2:
-      new_swimmer();
+      // new_swimmer();
+      if(!new_swimmer()) {--world.cur_map->num_trainers;} //Checks to see if swimmer was placed.
       break;
     default:
-      new_char_other();
+      // new_char_other();
+      if(!new_char_other()) {--world.cur_map->num_trainers;}
       break;
     }
     /* Game attempts to continue to place trainers until the probability *
@@ -968,9 +1003,9 @@ void init_pc()
 
   heap_insert(&world.cur_map->turn, &world.pc);
 
-  world.pc.bag[inv_revive] = 2;
-  world.pc.bag[inv_potion] = 2;
-  world.pc.bag[inv_pokeball] = 2;
+  world.pc.bag[inv_revive]		= 5;
+  world.pc.bag[inv_potion]		= 5;
+  world.pc.bag[inv_pokeball]	= 5;
 
   io_choose_starter();
 }

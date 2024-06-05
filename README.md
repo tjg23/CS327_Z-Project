@@ -6,4 +6,4 @@ The first thing I decided to implement was different types of maps. Now each map
 
 Geotypes are assigned with a modified version of the `map_terrain()` algorithm, where different types expand from a number of seeds.
 
-Pressing `m` during the game pauses it, much like `t` or `B`, and brings up a scaled-down representation of the world map on the right side. Different geotypes are shown with a character, most of which are shared with the character symbol for the type of terrain that dominates that geography.
+Pressing `m` during the game pauses it, much like `t` or `B`, and brings up a scaled-down representation of the world map on the left side. Different geotypes are shown with a character, most of which are shared with the character symbol for the type of terrain that dominates that geography.

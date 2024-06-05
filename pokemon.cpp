@@ -214,8 +214,9 @@ int pokemon::move_accuracy(int i)
 }
 
 int pokemon::hit(int dmg) {
-	hp -= dmg;
+	(dmg < 0) ? hp += dmg : hp -= dmg;
 	if (hp < 0) { hp = 0; }
+  if (hp > effective_stat[stat_hp]) { hp = effective_stat[stat_hp]; }
 	return hp;
 }
 

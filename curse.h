@@ -40,7 +40,7 @@
 /* ##### Character Spawn Constants */
   #define MIN_TRAINERS					7
   #define ADD_TRAINER_PROB 			60
-  #define ENCOUNTER_PROB				0
+  #define ENCOUNTER_PROB				20
   #define ADD_TRAINER_POK_PROB 	60
 
 /* ##### Terrain Symbols */
